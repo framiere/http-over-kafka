@@ -1,0 +1,85 @@
+openapi: 3.0.3
+info:
+  title: Payments
+  version: 1.0.0
+  description: >
+    Demo service B with a countable side effect. POST /charges debits an
+    account every time it is called: it deliberately has no idempotency of its
+    own, so any duplicate delivery shows up as a double debit.
+paths:
+  /charges:
+    post:
+      operationId: createCharge
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ChargeInput' }
+      responses:
+        '201':
+          description: Charged
+          headers:
+            Location: { schema: { type: string } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Charge' }
+        '400': { $ref: '#/components/responses/Problem' }
+        '415': { $ref: '#/components/responses/Problem' }
+  /charges/{chargeId}:
+    get:
+      operationId: getCharge
+      parameters:
+        - { name: chargeId, in: path, required: true, schema: { type: string } }
+      responses:
+        '200':
+          description: The charge
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Charge' }
+        '404': { $ref: '#/components/responses/Problem' }
+  /accounts/{accountId}:
+    get:
+      operationId: getAccount
+      parameters:
+        - { name: accountId, in: path, required: true, schema: { type: string } }
+      responses:
+        '200':
+          description: Debits applied to the account
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Account' }
+components:
+  responses:
+    Problem:
+      description: Error
+      content:
+        application/problem+json:
+          schema:
+            type: object
+            properties:
+              title: { type: string }
+              status: { type: integer }
+              detail: { type: string }
+  schemas:
+    ChargeInput:
+      type: object
+      required: [accountId, amountCents, currency]
+      properties:
+        accountId: { type: string, minLength: 1 }
+        amountCents: { type: integer, minimum: 1 }
+        currency: { type: string, pattern: '^[A-Z]{3}$' }
+    Charge:
+      allOf:
+        - $ref: '#/components/schemas/ChargeInput'
+        - type: object
+          required: [id, createdAt]
+          properties:
+            id: { type: string }
+            createdAt: { type: string, format: date-time }
+    Account:
+      type: object
+      required: [accountId, debitCount, debitedCents]
+      properties:
+        accountId: { type: string }
+        debitCount: { type: integer }
+        debitedCents: { type: integer }

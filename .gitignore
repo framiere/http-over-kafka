@@ -1,0 +1,6 @@
+# e2e run artifacts (one log per process, can reach hundreds of MB)
+e2e/out/
+/gateway
+/bridge
+/deriver
+/audit
