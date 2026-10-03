@@ -1,0 +1,156 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1630" height="860" viewBox="0 0 1630 860" font-family="Inter, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif">
+  <defs>
+    <style>
+      .title { font-size: 22px; font-weight: 700; fill: #0f172a; }
+      .subtitle { font-size: 14px; fill: #475569; }
+      .boxtitle { font-size: 17px; font-weight: 700; fill: #0f172a; }
+      .boxsub { font-size: 12.5px; fill: #475569; }
+      .boxline { font-size: 12.5px; fill: #334155; }
+      .pill { font-size: 12.5px; font-family: 'JetBrains Mono', Menlo, Consolas, monospace; fill: #7c2d12; }
+      .label { font-size: 12.5px; fill: #1e293b; }
+      .labelmuted { font-size: 12px; fill: #64748b; font-style: italic; }
+      .num { font-size: 12px; font-weight: 700; fill: #ffffff; }
+      .legend { font-size: 12.5px; fill: #334155; }
+    </style>
+    <marker id="a-req" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#4f46e5"/></marker>
+    <marker id="a-resp" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#059669"/></marker>
+    <marker id="a-ev" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#0d9488"/></marker>
+    <marker id="a-get" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#94a3b8"/></marker>
+  </defs>
+
+  <rect width="1630" height="860" fill="#ffffff"/>
+  <text x="40" y="44" class="title">HTTP over Kafka, invisible to both applications</text>
+  <text x="40" y="68" class="subtitle">A POST from A reaches B through Kafka and A gets B's real answer. Every mutation is recorded before it happens.</text>
+
+  <!-- GET passthrough lane -->
+  <path d="M 460 128 L 460 104 L 1515 104 L 1515 128" fill="none" stroke="#94a3b8" stroke-width="2" stroke-dasharray="7 6" marker-end="url(#a-get)"/>
+  <text x="988" y="96" class="labelmuted" text-anchor="middle">GET / HEAD: straight from the gateway to B, never touches Kafka</text>
+
+  <!-- Application A -->
+  <rect x="40" y="130" width="180" height="300" rx="14" fill="#f1f5f9" stroke="#64748b" stroke-width="1.5"/>
+  <text x="130" y="164" class="boxtitle" text-anchor="middle">Application A</text>
+  <text x="130" y="184" class="boxsub" text-anchor="middle">e.g. checkout</text>
+  <text x="130" y="380" class="boxline" text-anchor="middle">plain HTTP client</text>
+  <text x="130" y="398" class="boxline" text-anchor="middle">no Kafka client</text>
+
+  <!-- Gateway -->
+  <rect x="360" y="130" width="200" height="300" rx="14" fill="#eef2ff" stroke="#4f46e5" stroke-width="2"/>
+  <text x="460" y="164" class="boxtitle" text-anchor="middle">Gateway</text>
+  <text x="460" y="184" class="boxsub" text-anchor="middle">the only thing A sees</text>
+  <text x="380" y="350" class="boxline">• JWT → caller identity</text>
+  <text x="380" y="368" class="boxline">• route via B's OpenAPI</text>
+  <text x="380" y="386" class="boxline">• strip caller secrets</text>
+  <text x="380" y="404" class="boxline">• sign the command</text>
+
+  <!-- Kafka -->
+  <rect x="700" y="130" width="250" height="520" rx="16" fill="#fff7ed" stroke="#ea580c" stroke-width="2"/>
+  <text x="825" y="164" class="boxtitle" text-anchor="middle">Kafka</text>
+  <text x="825" y="184" class="boxsub" text-anchor="middle">transport + write-ahead log</text>
+  <rect x="720" y="200" width="210" height="34" rx="17" fill="#ffffff" stroke="#fdba74" stroke-width="1.5"/>
+  <text x="825" y="222" class="pill" text-anchor="middle">http.requests.payments</text>
+  <rect x="720" y="262" width="210" height="34" rx="17" fill="#ffffff" stroke="#fdba74" stroke-width="1.5"/>
+  <text x="825" y="284" class="pill" text-anchor="middle">http.bridge-state.payments</text>
+  <rect x="720" y="324" width="210" height="34" rx="17" fill="#ffffff" stroke="#fdba74" stroke-width="1.5"/>
+  <text x="825" y="346" class="pill" text-anchor="middle">http.responses.gateway-1</text>
+  <rect x="720" y="386" width="210" height="34" rx="17" fill="#ffffff" stroke="#fdba74" stroke-width="1.5"/>
+  <text x="825" y="408" class="pill" text-anchor="middle">http.results.payments</text>
+  <rect x="720" y="478" width="210" height="34" rx="17" fill="#f0fdfa" stroke="#5eead4" stroke-width="1.5"/>
+  <text x="825" y="500" class="pill" text-anchor="middle" fill="#115e59">payments.events</text>
+  <rect x="720" y="540" width="210" height="34" rx="17" fill="#f0fdfa" stroke="#5eead4" stroke-width="1.5"/>
+  <text x="825" y="562" class="pill" text-anchor="middle" fill="#115e59">http.event-failures.*</text>
+  <text x="825" y="610" class="labelmuted" text-anchor="middle">every topic is written by one producer</text>
+  <text x="825" y="628" class="labelmuted" text-anchor="middle">and signed by its role</text>
+
+  <!-- Bridge -->
+  <rect x="1110" y="130" width="200" height="300" rx="14" fill="#eef2ff" stroke="#4f46e5" stroke-width="2"/>
+  <text x="1210" y="164" class="boxtitle" text-anchor="middle">Bridge</text>
+  <text x="1210" y="184" class="boxsub" text-anchor="middle">Kafka consumer in front of B</text>
+  <text x="1128" y="386" class="boxline">• at most one call to B</text>
+  <text x="1128" y="404" class="boxline">• dedup by Idempotency-Key</text>
+
+  <!-- Application B -->
+  <rect x="1440" y="130" width="150" height="300" rx="14" fill="#f1f5f9" stroke="#64748b" stroke-width="1.5"/>
+  <text x="1515" y="164" class="boxtitle" text-anchor="middle">Application B</text>
+  <text x="1515" y="184" class="boxsub" text-anchor="middle">e.g. payments</text>
+  <text x="1515" y="380" class="boxline" text-anchor="middle">plain HTTP service</text>
+  <text x="1515" y="398" class="boxline" text-anchor="middle">unchanged</text>
+
+  <!-- 1 -->
+  <line x1="220" y1="217" x2="358" y2="217" stroke="#4f46e5" stroke-width="2.5" marker-end="url(#a-req)"/>
+  <circle cx="289" cy="217" r="11" fill="#4f46e5"/><text x="289" y="221" class="num" text-anchor="middle">1</text>
+  <text x="289" y="199" class="label" text-anchor="middle">POST /charges</text>
+  <text x="289" y="246" class="labelmuted" text-anchor="middle">JWT +</text>
+  <text x="289" y="261" class="labelmuted" text-anchor="middle">Idempotency-Key</text>
+  <!-- 2 -->
+  <line x1="560" y1="217" x2="718" y2="217" stroke="#4f46e5" stroke-width="2.5" marker-end="url(#a-req)"/>
+  <circle cx="629" cy="217" r="11" fill="#4f46e5"/><text x="629" y="221" class="num" text-anchor="middle">2</text>
+  <text x="629" y="199" class="label" text-anchor="middle">signed command</text>
+  <text x="629" y="246" class="labelmuted" text-anchor="middle">acks=all</text>
+  <!-- 3 -->
+  <line x1="930" y1="217" x2="1108" y2="217" stroke="#4f46e5" stroke-width="2.5" marker-end="url(#a-req)"/>
+  <circle cx="1040" cy="217" r="11" fill="#4f46e5"/><text x="1040" y="221" class="num" text-anchor="middle">3</text>
+  <text x="1040" y="199" class="label" text-anchor="middle">consume</text>
+  <!-- 4 -->
+  <line x1="1110" y1="272" x2="932" y2="272" stroke="#4f46e5" stroke-width="2.5" marker-end="url(#a-req)"/>
+  <circle cx="1060" cy="272" r="11" fill="#4f46e5"/><text x="1060" y="276" class="num" text-anchor="middle">4</text>
+  <text x="1060" y="300" class="label" text-anchor="middle">TX 1: "started"</text>
+  <!-- 5 -->
+  <line x1="1310" y1="217" x2="1438" y2="217" stroke="#4f46e5" stroke-width="2.5" marker-end="url(#a-req)"/>
+  <circle cx="1374" cy="217" r="11" fill="#4f46e5"/><text x="1374" y="221" class="num" text-anchor="middle">5</text>
+  <text x="1374" y="199" class="label" text-anchor="middle">POST /charges</text>
+  <text x="1374" y="246" class="labelmuted" text-anchor="middle">plain HTTP</text>
+  <!-- 6 -->
+  <line x1="1440" y1="300" x2="1312" y2="300" stroke="#059669" stroke-width="2.5" marker-end="url(#a-resp)"/>
+  <circle cx="1374" cy="300" r="11" fill="#059669"/><text x="1374" y="304" class="num" text-anchor="middle">6</text>
+  <text x="1374" y="326" class="label" text-anchor="middle">201 + body</text>
+  <!-- 7 -->
+  <line x1="1110" y1="360" x2="965" y2="360" stroke="#059669" stroke-width="2.5"/>
+  <line x1="965" y1="284" x2="965" y2="404" stroke="#059669" stroke-width="3"/>
+  <line x1="965" y1="285" x2="933" y2="285" stroke="#059669" stroke-width="2" marker-end="url(#a-resp)"/>
+  <line x1="965" y1="341" x2="933" y2="341" stroke="#059669" stroke-width="2" marker-end="url(#a-resp)"/>
+  <line x1="965" y1="403" x2="933" y2="403" stroke="#059669" stroke-width="2" marker-end="url(#a-resp)"/>
+  <circle cx="1040" cy="360" r="11" fill="#059669"/><text x="1040" y="364" class="num" text-anchor="middle">7</text>
+  <text x="1020" y="452" class="label" text-anchor="middle">TX 2, atomic:</text>
+  <text x="1020" y="468" class="labelmuted" text-anchor="middle">response + result</text>
+  <text x="1020" y="484" class="labelmuted" text-anchor="middle">+ state + offset</text>
+  <!-- 8 -->
+  <line x1="720" y1="341" x2="562" y2="341" stroke="#059669" stroke-width="2.5" marker-end="url(#a-resp)"/>
+  <circle cx="641" cy="341" r="11" fill="#059669"/><text x="641" y="345" class="num" text-anchor="middle">8</text>
+  <text x="641" y="322" class="label" text-anchor="middle">read_committed</text>
+  <!-- 9 -->
+  <line x1="360" y1="300" x2="222" y2="300" stroke="#059669" stroke-width="2.5" marker-end="url(#a-resp)"/>
+  <circle cx="289" cy="300" r="11" fill="#059669"/><text x="289" y="304" class="num" text-anchor="middle">9</text>
+  <text x="289" y="326" class="label" text-anchor="middle">201, B's bytes</text>
+  <text x="289" y="342" class="labelmuted" text-anchor="middle">unchanged</text>
+
+  <!-- Deriver -->
+  <rect x="360" y="560" width="200" height="130" rx="14" fill="#f0fdfa" stroke="#0d9488" stroke-width="2"/>
+  <text x="460" y="592" class="boxtitle" text-anchor="middle">Deriver</text>
+  <text x="460" y="612" class="boxsub" text-anchor="middle">result → business event</text>
+  <text x="460" y="640" class="boxline" text-anchor="middle">only if B's OpenAPI</text>
+  <text x="460" y="658" class="boxline" text-anchor="middle">declares x-conduktor-event</text>
+  <path d="M 720 403 L 650 403 L 650 590 L 562 590" fill="none" stroke="#0d9488" stroke-width="2" marker-end="url(#a-ev)"/>
+  <path d="M 560 640 L 680 640 L 680 495 L 718 495" fill="none" stroke="#0d9488" stroke-width="2" marker-end="url(#a-ev)"/>
+  <path d="M 680 557 L 718 557" fill="none" stroke="#0d9488" stroke-width="2" marker-end="url(#a-ev)"/>
+
+  <!-- Audit / any consumer -->
+  <rect x="1110" y="560" width="200" height="130" rx="14" fill="#f0fdfa" stroke="#0d9488" stroke-width="2"/>
+  <text x="1210" y="592" class="boxtitle" text-anchor="middle">Audit, analytics, agents</text>
+  <text x="1210" y="612" class="boxsub" text-anchor="middle">any independent consumer</text>
+  <text x="1210" y="640" class="boxline" text-anchor="middle">who called what, and the</text>
+  <text x="1210" y="658" class="boxline" text-anchor="middle">outcome. A and B unchanged.</text>
+  <path d="M 930 414 L 945 414 L 945 520 L 1090 520 L 1090 600 L 1108 600" fill="none" stroke="#0d9488" stroke-width="2" marker-end="url(#a-ev)"/>
+
+  <!-- Legend -->
+  <line x1="40" y1="760" x2="80" y2="760" stroke="#4f46e5" stroke-width="2.5" marker-end="url(#a-req)"/>
+  <text x="90" y="764" class="legend">request path</text>
+  <line x1="200" y1="760" x2="240" y2="760" stroke="#059669" stroke-width="2.5" marker-end="url(#a-resp)"/>
+  <text x="250" y="764" class="legend">response path</text>
+  <line x1="370" y1="760" x2="410" y2="760" stroke="#0d9488" stroke-width="2" marker-end="url(#a-ev)"/>
+  <text x="420" y="764" class="legend">mutation stream consumers</text>
+  <line x1="610" y1="760" x2="650" y2="760" stroke="#94a3b8" stroke-width="2" stroke-dasharray="7 6" marker-end="url(#a-get)"/>
+  <text x="660" y="764" class="legend">reads, no Kafka</text>
+
+  <text x="40" y="800" class="legend">A's connection stays open from 1 to 9: the call is synchronous for A, and A gets B's real status, headers and body.</text>
+  <text x="40" y="822" class="legend">Step 4 is written before B is called: if the bridge crashes after 5, the next owner answers "outcome unknown" instead of calling B again.</text>
+</svg>

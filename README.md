@@ -10,44 +10,7 @@ Status: POC. It runs, it is tested hard (see [Verification](#verification)), and
 
 ## Architecture
 
-```text
-          Application A (plain HTTP client)
-                     │  POST /orders + JWT
-                     ▼
-┌──────────────────────── gateway ─────────────────────────┐
-│ authenticates the caller (JWT → application identity)    │
-│ resolves the operation from B's OpenAPI (method + path)  │
-│ strips caller secrets (standard + declared in OpenAPI)   │
-│ GET/HEAD ──────────────────────────────────┐ passthrough │
-│ mutations → signed Command (gateway key)   │             │
-└───────────┬──────────────────────▲─────────┼─────────────┘
-            │                      │         │
-  http.requests.<svc>   http.responses.<gateway-instance>
-            │                      │         │
-╔═══════════▼══════════ Kafka ═════╪═════════╪═════════════╗
-║  http.requests.*   http.results.*   <svc>.events         ║
-║  http.bridge-state.*   http.event-dedup.*   ...          ║
-╚═══════════╤════════════════▲═════╪═════════╪═════════════╝
-            │                │     │         │
-┌───────────▼──── bridge ────┴─────┴──┐      │
-│ verifies signature and partition    │      │
-│ TX 1: durable "started" marker      │      │
-│ calls B over plain HTTP ────────────┼──┐   │
-│ TX 2: Response + Result + dedup     │  │   │
-│       state + offset, atomically    │  ▼   ▼
-└─────────────────────────────────────┘  Application B
-                                         (plain HTTP service,
-     http.results.<svc>                   knows nothing of Kafka)
-            │                     │
-┌───────────▼──── deriver ───┐  ┌─▼──────── audit ───────────┐
-│ Result → x-conduktor-event │  │ reads requests + results   │
-│ mapping → business event   │  │ who, what, outcome,        │
-│ (one transaction: event +  │  │ authentic or not           │
-│  dedup entry + offset)     │  └────────────────────────────┘
-└───────────┬────────────────┘
-            ▼
-      orders.events  (OrderCreated, CloudEvents)
-```
+![Architecture: application A calls the gateway, the command goes through Kafka to the bridge, which calls application B; the response comes back through Kafka. The deriver and audit consume the results.](docs/architecture.svg)
 
 | Component | Role | Code |
 |---|---|---|
@@ -60,22 +23,11 @@ Status: POC. It runs, it is tested hard (see [Verification](#verification)), and
 
 ## What happens on a POST
 
-```text
-A ──POST──▶ gateway ──produce (acks=all)──▶ http.requests.payments
-                         ① command is durable before B is touched
-            gateway waits on its own reply topic (read_committed)
-                                   bridge consumes the command
-                         ② TX 1 commits "started" for this request
-                                   bridge ──POST──▶ B ──201──▶ bridge
-                         ③ side effect happened in B
-                         ④ TX 2 commits Response + Result + dedup state + offset
-A ◀──201── gateway ◀── reply topic
-                         ⑤ A gets B's status, headers and body unchanged
-```
+![Sequence of a POST: A to gateway, produce to Kafka, bridge consumes, commits "started", calls B, B answers, bridge commits response, result and state atomically, gateway reads the response and returns it to A.](docs/sequence.svg)
 
 From A's point of view the call is synchronous: the connection stays open and A receives B's real answer, not a `202`. Kafka is the transport, and the write-ahead log of every mutation.
 
-The "started" marker at ② is the price of the main guarantee. Without it, a bridge crash between ③ and ④ would make the next owner call B again. Operations that HTTP or the contract declares safe to repeat (`PUT`, `DELETE`, or `x-conduktor-retry-safe: true`) skip ② and use a single transaction.
+The "started" marker (badge 2) is the price of the main guarantee. Without it, a bridge crash between B's side effect and the outcome commit would make the next owner call B again. Operations that HTTP or the contract declares safe to repeat (`PUT`, `DELETE`, or `x-conduktor-retry-safe: true`) skip it and use a single transaction.
 
 `GET` and `HEAD` never touch Kafka. They go straight from the gateway to B, built exactly like the bridge builds mutations, so B sees the same request shape whatever the transport.
 
