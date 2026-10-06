@@ -101,9 +101,14 @@ func loadDedup(ctx context.Context, brokers []string, service string, cutoff tim
 	if err != nil {
 		return nil, fmt.Errorf("dedup end offset: %w", err)
 	}
+	// Topic-level failures live under partition -1 in kadm, so looking only
+	// for partition 0 discards the actual broker error (and prints "<nil>").
+	if err := ends.Error(); err != nil {
+		return nil, fmt.Errorf("dedup end offset of %s: %w", topic, err)
+	}
 	end, ok := ends.Lookup(topic, 0)
-	if !ok || end.Err != nil {
-		return nil, fmt.Errorf("dedup end offset of %s: %v", topic, end.Err)
+	if !ok {
+		return nil, fmt.Errorf("dedup end offset of %s: partition 0 missing from response", topic)
 	}
 	set := dedupSet{}
 	for pos := int64(0); pos < end.Offset; {

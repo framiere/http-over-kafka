@@ -11,6 +11,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/sderosiaux/http-over-kafka/internal/wire"
 	"github.com/twmb/franz-go/pkg/kadm"
@@ -88,16 +89,96 @@ func EventTopic(name string, partitions int32) Topic {
 	return Topic{Name: name, Partitions: partitions, Configs: baseConfigs()}
 }
 
-// EnsureTopics creates missing topics and leaves existing ones untouched. It
-// does not reconcile partition counts or configs of existing topics.
+// EnsureTopics creates missing topics and waits until metadata describes a
+// leader for every partition. The wait does not establish replica health or
+// reconcile partition counts or configs of existing topics. The entire call
+// is bounded by 30 seconds, or by ctx's deadline when earlier.
+// The admin client's MetadataMinAge still applies: a shorter deadline may
+// expire before cached transient metadata is refreshed.
 func EnsureTopics(ctx context.Context, adm *kadm.Client, topics ...Topic) error {
+	if len(topics) == 0 {
+		return nil
+	}
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
 	var errs []error
+	names := make([]string, 0, len(topics))
 	for _, t := range topics {
+		names = append(names, t.Name)
 		// kadm.CreateTopic returns the per-topic error as err too.
 		_, err := adm.CreateTopic(ctx, t.Partitions, cmp.Or(t.ReplicationFactor, -1), t.Configs, t.Name)
 		if err != nil && !errors.Is(err, kerr.TopicAlreadyExists) {
 			errs = append(errs, fmt.Errorf("create topic %s: %w", t.Name, err))
 		}
 	}
-	return errors.Join(errs...)
+	if err := errors.Join(errs...); err != nil {
+		return err
+	}
+	// CreateTopics acknowledges the controller's change before every broker
+	// can describe it. Consumers must not start from missing or leaderless
+	// metadata and mistake that transient state for lost durable data.
+	return waitForTopics(ctx, adm.ListTopics, names)
+}
+
+func waitForTopics(ctx context.Context, list func(context.Context, ...string) (kadm.TopicDetails, error), names []string) error {
+	for backoff := 50 * time.Millisecond; ; backoff = min(2*backoff, time.Second) {
+		if err := ctx.Err(); err != nil {
+			return fmt.Errorf("waiting for topic metadata: %w", err)
+		}
+		details, err := list(ctx, names...)
+		if err == nil {
+			err = topicMetadataReady(details, names)
+		}
+		if err == nil {
+			return nil
+		}
+		if !kerr.IsRetriable(err) {
+			return fmt.Errorf("waiting for topic metadata: %w", err)
+		}
+		timer := time.NewTimer(backoff)
+		select {
+		case <-ctx.Done():
+			timer.Stop()
+			return fmt.Errorf("waiting for topic metadata: %w", errors.Join(ctx.Err(), err))
+		case <-timer.C:
+		}
+	}
+}
+
+// Permanent errors take precedence over transient ones so a missing topic
+// cannot hide an authorization error on another topic until the timeout.
+func topicMetadataReady(details kadm.TopicDetails, names []string) error {
+	var pending error
+	for _, name := range names {
+		topic, ok := details[name]
+		if !ok {
+			pending = fmt.Errorf("topic %s: %w", name, kerr.UnknownTopicOrPartition)
+			continue
+		}
+		if topic.Err != nil {
+			err := fmt.Errorf("topic %s: %w", name, topic.Err)
+			if !kerr.IsRetriable(err) {
+				return err
+			}
+			pending = err
+			continue
+		}
+		if len(topic.Partitions) == 0 {
+			pending = fmt.Errorf("topic %s has no partitions: %w", name, kerr.LeaderNotAvailable)
+		}
+		for id, partition := range topic.Partitions {
+			err := partition.Err
+			if err == nil && partition.Leader < 0 {
+				err = kerr.LeaderNotAvailable
+			}
+			if err != nil {
+				err = fmt.Errorf("topic %s partition %d: %w", name, id, err)
+				if !kerr.IsRetriable(err) {
+					return err
+				}
+				pending = err
+			}
+		}
+	}
+	return pending
 }
