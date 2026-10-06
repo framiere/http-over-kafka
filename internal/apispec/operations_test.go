@@ -2,6 +2,7 @@ package apispec_test
 
 import (
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/sderosiaux/http-over-kafka/internal/apispec"
@@ -70,5 +71,58 @@ paths:
 	}
 	if _, ok := (apispec.Credentials{}).Alternative(public.Operation); !ok {
 		t.Fatal("anonymous operation override lost")
+	}
+}
+
+// Enumeration must not broaden a component's credential needs: each side
+// checks only the operations it executes, preserving AND and OR semantics.
+func TestUnnamedCredentialAlternativesAndRoleBoundaries(t *testing.T) {
+	const prefix = `openapi: 3.0.3
+info: {title: secure, version: '1'}
+components:
+  securitySchemes:
+    read: {type: apiKey, in: header, name: X-Read-Key}
+    second: {type: apiKey, in: query, name: second_key}
+    write: {type: http, scheme: bearer}
+paths:
+  /private:
+    get:
+      security: SECURITY
+      responses: {'200': {description: ok}}
+    post:
+      operationId: writePrivate
+      security: [{write: []}]
+      responses: {'201': {description: ok}}
+`
+	for _, tc := range []struct {
+		name, requirement string
+		creds             apispec.Credentials
+		wantOK            bool
+	}{
+		{"missing", "[{read: []}]", nil, false},
+		{"AND partial", "[{read: [], second: []}]", apispec.Credentials{"read": "read-value"}, false},
+		{"AND complete", "[{read: [], second: []}]", apispec.Credentials{"read": "read-value", "second": "second-value"}, true},
+		{"OR second", "[{read: []}, {second: []}]", apispec.Credentials{"second": "second-value"}, true},
+		{"anonymous OR", "[{read: []}, {}]", nil, true},
+		{"security disabled", "[]", nil, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			svc := mustLoad(t, "svc", []byte(strings.Replace(prefix, "SECURITY", tc.requirement, 1)))
+			reads := func(op *apispec.Operation) bool { return !op.Transported() }
+			writes := func(op *apispec.Operation) bool { return op.Transported() }
+			err := tc.creds.Check(svc, reads)
+			if (err == nil) != tc.wantOK {
+				t.Fatalf("read credential check: %v", err)
+			}
+			if err != nil && !strings.Contains(err.Error(), "GET /private") {
+				t.Fatalf("missing route diagnostic: %v", err)
+			}
+			if err := (apispec.Credentials{"write": "write-value"}).Check(svc, writes); err != nil {
+				t.Fatalf("bridge required an unused read credential: %v", err)
+			}
+			if err := tc.creds.Check(svc, writes); err == nil {
+				t.Fatal("bridge accepted missing write credential")
+			}
+		})
 	}
 }
