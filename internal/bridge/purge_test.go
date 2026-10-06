@@ -233,19 +233,44 @@ func purgePartition(t *testing.T, count int) *partition {
 	_, b.abandon = context.WithCancelCause(t.Context())
 	kafkatest.CreateTopics(t, kafkaenv.CommandTopic(service, 1))
 	kafkatest.Eventually(t, 30*time.Second, func() bool { return b.prepareTopics(t.Context()) == nil }, "prepare purge topics")
+	w := newPartition(b, b.base, 0)
+	t.Cleanup(func() { w.stopPurge(); w.end(); w.closeProducer() })
+	// Bootstrap a real writer and inventory without advancing the worker
+	// generation: commitLoop's first reopen must still be generation one.
+	w.st, err = w.open()
+	if err != nil {
+		t.Fatal(err)
+	}
 	recs := make([]*kgo.Record, 0, count)
 	for i := range count {
-		r, err := stateRecord(signer, b.stateTopic, 0, fmt.Sprintf("r:expired-%d", i),
+		r, err := stateRecord(b.stateTopic, 0, fmt.Sprintf("r:expired-%d", i),
 			&entry{Phase: done, PurgeAfter: b.now().Add(-time.Hour)})
 		if err != nil {
 			t.Fatal(err)
 		}
 		recs = append(recs, r)
 	}
-	if err := b.base.ProduceSync(t.Context(), recs...).FirstErr(); err != nil {
+	commitPurgeFixture(t, w, recs, count)
+	return w
+}
+
+// Fixtures use the same physical-offset signatures and transactional inventory
+// as a legitimate state owner. The caller restores before inspecting memory.
+func commitPurgeFixture(t *testing.T, w *partition, recs []*kgo.Record, entries int) {
+	t.Helper()
+	seal, err := stateRecord(w.b.stateTopic, w.id, keySeal, sealValue{entries, w.st.next, w.st.genesis})
+	if err != nil {
 		t.Fatal(err)
 	}
-	w := newPartition(b, b.base, 0)
-	t.Cleanup(func() { w.stopPurge(); w.end(); w.closeProducer() })
-	return w
+	if err := w.prod.BeginTransaction(); err != nil {
+		t.Fatal(err)
+	}
+	if err := w.produceState(t.Context(), append(recs, seal)); err != nil {
+		w.abort()
+		t.Fatal(err)
+	}
+	if err := w.prod.EndTransaction(t.Context(), kgo.TryCommit); err != nil {
+		w.abort()
+		t.Fatal(err)
+	}
 }

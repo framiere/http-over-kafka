@@ -126,15 +126,13 @@ func TestRestoreUpgradesLegacyRetentionOnceAndPurgesDurably(t *testing.T) {
 		if key == "r:current" {
 			e.PurgeAfter, e.RetentionPolicy = want, retentionPolicy
 		}
-		r, err := stateRecord(w.b.cfg.Signer, w.b.stateTopic, w.id, key, e)
+		r, err := stateRecord(w.b.stateTopic, w.id, key, e)
 		if err != nil {
 			t.Fatal(err)
 		}
 		records = append(records, r)
 	}
-	if err := w.b.base.ProduceSync(t.Context(), records...).FirstErr(); err != nil {
-		t.Fatal(err)
-	}
+	commitPurgeFixture(t, w, records, len(records))
 	for restore := range 3 {
 		if !w.reopen(t.Context()) {
 			t.Fatal("restore failed")
@@ -150,13 +148,11 @@ func TestRestoreUpgradesLegacyRetentionOnceAndPurgesDurably(t *testing.T) {
 		// One upgraded entry is rewritten between restores; the other legacy
 		// entries still come from their original bytes. Neither may gain S twice.
 		if restore == 0 {
-			r, err := stateRecord(w.b.cfg.Signer, w.b.stateTopic, w.id, "r:legacy", w.st.entries["r:legacy"])
+			r, err := stateRecord(w.b.stateTopic, w.id, "r:legacy", w.st.entries["r:legacy"])
 			if err != nil {
 				t.Fatal(err)
 			}
-			if err := w.b.base.ProduceSync(t.Context(), r).FirstErr(); err != nil {
-				t.Fatal(err)
-			}
+			commitPurgeFixture(t, w, []*kgo.Record{r}, len(records))
 		}
 	}
 	for _, boundary := range []time.Time{now, want} {

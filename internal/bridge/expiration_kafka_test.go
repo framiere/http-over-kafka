@@ -176,7 +176,7 @@ func TestCommandExpirationDuringOutcomeCommitRecovery(t *testing.T) {
 						t.Error(err)
 						return
 					}
-					rec := signedState(e, int32(p), "#fence", []byte(`{"instance":"intruder"}`))
+					rec := successorFence(t, e, cl, int32(p))
 					if err := cl.ProduceSync(t.Context(), rec).FirstErr(); err != nil {
 						t.Error(err)
 						return
@@ -193,9 +193,42 @@ func TestCommandExpirationDuringOutcomeCommitRecovery(t *testing.T) {
 							t.Error(err)
 							return
 						}
-						marker := signedState(e, int32(p), cmd.DedupKey(), value)
-						if err := cl.ProduceSync(t.Context(), marker).FirstErr(); err != nil {
+						var inventory struct {
+							Entries int    `json:"entries"`
+							Next    int64  `json:"next"`
+							Genesis string `json:"genesis"`
+						}
+						// The first replayable command has no started entry. Its
+						// aborted outcome leaves only the committed genesis state.
+						kafkatest.Consume(t, rec.Topic, 30*time.Second, func(rs []*kgo.Record) bool {
+							for _, r := range rs {
+								if r.Partition == int32(p) && string(r.Key) == "#seal" {
+									if err := json.Unmarshal(r.Value, &inventory); err != nil {
+										t.Fatal(err)
+									}
+								}
+							}
+							return inventory.Genesis != ""
+						})
+						if inventory.Entries != 0 || inventory.Next != 0 {
+							t.Errorf("unexpected state before inherited marker: %+v", inventory)
+							return
+						}
+						inventory.Entries++
+						seal, err := json.Marshal(inventory)
+						if err != nil {
 							t.Error(err)
+							return
+						}
+						// rec.Offset is assigned by the successful fence produce above.
+						marker := signStateWith(e.bridgeSigner, rec.Topic, int32(p), cmd.DedupKey(), value, rec.Offset+1)
+						sealed := signStateWith(e.bridgeSigner, rec.Topic, int32(p), "#seal", seal, rec.Offset+2)
+						if err := cl.ProduceSync(t.Context(), marker, sealed).FirstErr(); err != nil {
+							t.Error(err)
+							return
+						}
+						if marker.Offset != rec.Offset+1 || sealed.Offset != rec.Offset+2 {
+							t.Errorf("state positions changed after fence: fence=%d marker=%d seal=%d", rec.Offset, marker.Offset, sealed.Offset)
 							return
 						}
 					}
