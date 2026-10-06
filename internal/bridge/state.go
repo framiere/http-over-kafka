@@ -62,9 +62,13 @@ type entry struct {
 	// Unanswered marks a claim made by a genesis scan: the command itself
 	// has not been answered yet (no Response, no Result).
 	Unanswered bool `json:"unanswered,omitempty"`
-	// PurgeAfter is when the entry may be tombstoned: never before the
-	// command could still be accepted by the verifier (ExpiresAt + skew).
+	// PurgeAfter is the inclusive retention boundary on any owner's clock:
+	// at least ExpiresAt + 3*ClockSkew, to cover the verifier's tolerance and
+	// the 2*ClockSkew difference between the fastest and slowest owners.
 	PurgeAfter time.Time `json:"purgeAfter"`
+	// RetentionPolicy distinguishes the legacy 2*ClockSkew deadline from
+	// the current bound. Restore upgrades legacy deadlines exactly once.
+	RetentionPolicy uint8 `json:"retentionPolicy,omitempty"`
 }
 
 // claims reports whether the entry pins its idempotency scope to its outcome.

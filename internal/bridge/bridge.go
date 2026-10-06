@@ -74,10 +74,12 @@ type Config struct {
 	// IdempotencyRetention is how long an outcome stays replayable to a
 	// retry carrying the same Idempotency-Key.
 	IdempotencyRetention time.Duration
-	ClockSkew            time.Duration
-	MaxTTL               time.Duration
-	TxnTimeout           time.Duration
-	RestoreTimeout       time.Duration
+	// ClockSkew bounds each bridge's clock difference from the gateway.
+	// Two owners may therefore differ from one another by twice this bound.
+	ClockSkew      time.Duration
+	MaxTTL         time.Duration
+	TxnTimeout     time.Duration
+	RestoreTimeout time.Duration
 	// PurgeInterval is the delay between complete dedup sweeps. A sweep
 	// drains in bounded chunks, even when no commands arrive.
 	PurgeInterval time.Duration
@@ -223,6 +225,9 @@ func New(cfg Config) (*Bridge, error) {
 	def(&cfg.IdempotencyRetention, 24*time.Hour)
 	def(&cfg.ClockSkew, wire.DefaultClockSkew)
 	def(&cfg.MaxTTL, wire.DefaultMaxTTL)
+	if err := validateDedupWindow(cfg); err != nil {
+		return nil, err
+	}
 	def(&cfg.TxnTimeout, 10*time.Second)
 	def(&cfg.RestoreTimeout, 2*time.Minute)
 	def(&cfg.PurgeInterval, time.Minute)
@@ -277,10 +282,10 @@ func (b *Bridge) beforeMemory(rec *kgo.Record) bool {
 	return int(rec.Partition) < len(ms) && rec.Offset < ms[rec.Partition]
 }
 
-// idemWindow is how far back a retry may refer: an idempotency outcome is
-// kept that long after its command could last execute.
+// idemWindow bounds the history needed by a genesis scan, including command
+// lifetime, all owners' clock differences, and idempotency retention.
 func (b *Bridge) idemWindow() time.Duration {
-	return b.cfg.IdempotencyRetention + b.cfg.MaxTTL + 2*b.cfg.ClockSkew
+	return b.cfg.IdempotencyRetention + b.cfg.MaxTTL + b.replayMargin()
 }
 
 func (b *Bridge) expectedPartition(key []byte) int32 {

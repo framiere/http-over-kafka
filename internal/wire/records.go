@@ -87,8 +87,9 @@ func VerifySignature(rec *kgo.Record, trust identity.TrustedKeys) error {
 // DefaultClockSkew is tolerated between gateway and bridge clocks.
 const DefaultClockSkew = 30 * time.Second
 
-// DefaultMaxTTL caps ExpiresAt-IssuedAt. It is what lets the bridge size its
-// dedup retention: retention >= MaxTTL + 2*ClockSkew closes the replay window.
+// DefaultMaxTTL caps ExpiresAt-IssuedAt. Together with ClockSkew it bounds
+// dedup retention: every owner must retain through ExpiresAt + 3*ClockSkew,
+// including the verifier's tolerance and the difference between two owners.
 const DefaultMaxTTL = time.Hour
 
 var (
