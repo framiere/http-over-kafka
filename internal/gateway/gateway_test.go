@@ -325,7 +325,11 @@ func TestTimeoutAndLateResponse(t *testing.T) {
 	defer unblock() // also release the peer before its cleanup on any failure
 	seen := make(chan wire.Command, 1)
 	p := startPeer(t, name, b.URL, func(cmd wire.Command) (wire.Response, bool) {
-		seen <- cmd
+		select {
+		case seen <- cmd:
+		default:
+			t.Error("peer received an unexpected extra command while an observation was pending")
+		}
 		<-release
 		return wire.Response{}, false // then call B normally
 	})
