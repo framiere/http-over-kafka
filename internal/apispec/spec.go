@@ -319,6 +319,11 @@ func parseEvent(v any, segs []segment, o *openapi3.Operation) (*EventMapping, er
 		if exprErr != nil {
 			return
 		}
+		// Bodies may be selected whole (no steps), or navigated at runtime.
+		// Only named path/query/header sources have a mandatory first step.
+		if e.Source == RequestBody || e.Source == ResponseBody {
+			return
+		}
 		name := e.Steps[0].Field
 		switch {
 		case e.Source == RequestPath && !params[name]:
