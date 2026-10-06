@@ -341,6 +341,49 @@ func TestVerifyStaleCommandsAreAuthenticButNotExecutable(t *testing.T) {
 	}
 }
 
+// Receipt and point-of-use checks must share the same boundary and configured
+// skew. Crossing the gateway deadline alone never invalidates a command.
+func TestCommandValidityWindowBoundaries(t *testing.T) {
+	signer, ring := keys(t, "gw-time")
+	cmd := validCommand()
+	rec, err := wire.EncodeCommand(cmd, signer)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, skew := range []time.Duration{0, 7 * time.Second} {
+		t.Run(skew.String(), func(t *testing.T) {
+			tolerance := skew
+			if tolerance == 0 {
+				tolerance = wire.DefaultClockSkew
+			}
+			for _, tc := range []struct {
+				name  string
+				now   time.Time
+				stale bool
+			}{
+				{"future beyond tolerance", cmd.IssuedAt.Add(-tolerance - time.Nanosecond), true},
+				{"future at tolerance", cmd.IssuedAt.Add(-tolerance), false},
+				{"gateway deadline passed", cmd.Deadline.Add(time.Nanosecond), false},
+				{"expiry", cmd.ExpiresAt, false},
+				{"expiry at tolerance", cmd.ExpiresAt.Add(tolerance), false},
+				{"expiry beyond tolerance", cmd.ExpiresAt.Add(tolerance + time.Nanosecond), true},
+			} {
+				t.Run(tc.name, func(t *testing.T) {
+					v := verifier(ring, tc.now)
+					v.ClockSkew = skew
+					_, err := v.Verify(rec)
+					if errors.Is(err, wire.ErrStale) != tc.stale || err != nil && !errors.Is(err, wire.ErrStale) {
+						t.Fatalf("Verify: %v, want stale=%t", err, tc.stale)
+					}
+					if err := v.CheckTime(cmd); errors.Is(err, wire.ErrStale) != tc.stale {
+						t.Fatalf("CheckTime: %v, want stale=%t", err, tc.stale)
+					}
+				})
+			}
+		})
+	}
+}
+
 func TestKeyRotation(t *testing.T) {
 	oldS, _, _ := identity.Generate("k-old")
 	newS, newP, _ := identity.Generate("k-new")

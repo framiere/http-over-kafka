@@ -806,7 +806,8 @@ func (w *partition) process(l *lane, rec *kgo.Record, g uint64) error {
 			}
 		}
 		if op, err := w.b.spec.Check(cmd); err == nil && op.Replayable() && verr == nil {
-			w.b.log.Warn("replaying a replayable operation whose outcome is unknown", "requestId", cmd.RequestID, "operation", op.ID)
+			w.b.log.Warn("resuming a replayable operation whose outcome is unknown", "requestId", cmd.RequestID, "operation", op.ID)
+			cur.called = true // a restored marker means an earlier attempt may have run
 			return w.execute(rec, cmd, op, cur, g)
 		}
 		w.b.log.Warn("outcome unknown: B may have executed before a crash or takeover", "requestId", cmd.RequestID, "operation", cmd.OperationID)
@@ -814,7 +815,22 @@ func (w *partition) process(l *lane, rec *kgo.Record, g uint64) error {
 			"the bridge stopped after the request may have reached the service; it was not retried"), true, g)
 	}
 
+	// An outcome commit may have failed after B answered. In particular,
+	// replayable operations have no "started" entry to find above. Expiry
+	// forbids another call, but cannot change the outcome we already know.
+	if cur.resp != nil {
+		ownEntry := e == nil
+		if e != nil {
+			op, err := w.b.spec.Check(cmd)
+			ownEntry = !e.claims(err == nil && op.Replayable())
+		}
+		return w.complete(rec, cmd, *cur.resp, ownEntry, g)
+	}
 	if verr != nil {
+		if cur.called {
+			return w.complete(rec, cmd, wire.FaultResponse(cmd.RequestID, wire.FaultOutcomeUnknown,
+				"the command is no longer valid; an earlier attempt may have reached the service and was not retried"), e == nil, g)
+		}
 		return w.complete(rec, cmd, wire.FaultResponse(cmd.RequestID, wire.FaultCommandStale, verr.Error()), e == nil, g)
 	}
 	if redacted, found := w.b.redactSecrets(cmd); len(found) > 0 {
@@ -850,9 +866,6 @@ func (w *partition) process(l *lane, rec *kgo.Record, g uint64) error {
 			"the bridge's idempotency history is incomplete until "+w.b.layout.BlindUntil.Format(time.RFC3339)+
 				"; a request with an Idempotency-Key it has not seen is not executed before then"), false, g)
 	}
-	if cur.resp != nil {
-		return w.complete(rec, cmd, *cur.resp, true, g)
-	}
 	if cur.called && !op.Replayable() {
 		return w.complete(rec, cmd, wire.FaultResponse(cmd.RequestID, wire.FaultOutcomeUnknown, "dedup entry lost after the call"), true, g)
 	}
@@ -874,17 +887,41 @@ func (w *partition) execute(rec *kgo.Record, cmd wire.Command, op *apispec.Opera
 
 	t1 := time.Now()
 	var resp wire.Response
+	didCall := false
 	for try := 1; ; try++ {
+		// Check at the point of use, after the started transaction and before
+		// every retry. Expiration stops new attempts; it cannot undo an earlier
+		// call or turn an uncertain outcome into proof of non-execution.
+		if err := w.b.verifier.CheckTime(cmd); err != nil {
+			if cur.called {
+				resp = wire.FaultResponse(cmd.RequestID, wire.FaultOutcomeUnknown,
+					"the command is no longer valid; an earlier attempt may have reached the service and was not retried")
+			} else {
+				resp = wire.FaultResponse(cmd.RequestID, wire.FaultCommandStale, err.Error())
+			}
+			break
+		}
+		previouslyCalled := cur.called
 		cur.called = true
+		didCall = true
 		resp = w.b.up.call(w.ctx, cmd, op)
+		if try > 1 {
+			w.b.log.Warn("retried replayable operation after unknown outcome", "requestId", cmd.RequestID, "try", try)
+		}
+		if previouslyCalled && resp.Fault != "" && resp.Fault.Execution() == wire.ExecutionNone {
+			resp = wire.FaultResponse(cmd.RequestID, wire.FaultOutcomeUnknown,
+				"the retry did not reach the service, but an earlier attempt may have; its outcome remains unknown")
+			break
+		}
 		if resp.Fault != wire.FaultOutcomeUnknown || !op.Replayable() || try >= w.b.cfg.ReplayAttempts || w.ctx.Err() != nil {
 			break
 		}
-		w.b.log.Warn("replayable operation retried after unknown outcome", "requestId", cmd.RequestID, "try", try)
 	}
 	cur.resp = &resp
 	t.Upstream = time.Since(t1)
-	w.b.cfg.Hooks.afterUpstream(cmd.RequestID)
+	if didCall {
+		w.b.cfg.Hooks.afterUpstream(cmd.RequestID)
+	}
 
 	t2 := time.Now()
 	if err := w.complete(rec, cmd, resp, true, g); err != nil {

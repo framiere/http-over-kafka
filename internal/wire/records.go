@@ -158,6 +158,14 @@ func (v CommandVerifier) Verify(rec *kgo.Record) (Command, error) {
 	if string(rec.Key) != cmd.DedupKey() {
 		return fail("record key does not match command dedup key")
 	}
+	return cmd, v.CheckTime(cmd)
+}
+
+// CheckTime checks an already authenticated command's validity window. The
+// bridge rechecks it before each upstream attempt: time may have passed while
+// committing state or waiting for a previous attempt. This does not authenticate
+// cmd and must never replace Verify for an incoming record.
+func (v CommandVerifier) CheckTime(cmd Command) error {
 	now, skew := time.Now(), DefaultClockSkew
 	if v.Now != nil {
 		now = v.Now()
@@ -171,13 +179,13 @@ func (v CommandVerifier) Verify(rec *kgo.Record) (Command, error) {
 	}
 	switch {
 	case cmd.ExpiresAt.Sub(cmd.IssuedAt) > maxTTL:
-		return cmd, fmt.Errorf("%w: lifetime %s exceeds %s", ErrStale, cmd.ExpiresAt.Sub(cmd.IssuedAt), maxTTL)
+		return fmt.Errorf("%w: lifetime %s exceeds %s", ErrStale, cmd.ExpiresAt.Sub(cmd.IssuedAt), maxTTL)
 	case cmd.IssuedAt.After(now.Add(skew)):
-		return cmd, fmt.Errorf("%w: issued %s in the future", ErrStale, cmd.IssuedAt.Sub(now))
+		return fmt.Errorf("%w: issued %s in the future", ErrStale, cmd.IssuedAt.Sub(now))
 	case now.After(cmd.ExpiresAt.Add(skew)):
-		return cmd, fmt.Errorf("%w: expired %s ago", ErrStale, now.Sub(cmd.ExpiresAt))
+		return fmt.Errorf("%w: expired %s ago", ErrStale, now.Sub(cmd.ExpiresAt))
 	}
-	return cmd, nil
+	return nil
 }
 
 // EncodeResponse targets the reply topic of the gateway instance that holds
