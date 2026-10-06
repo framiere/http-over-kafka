@@ -3,195 +3,296 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>http-over-kafka: put Kafka under your HTTP services</title>
-  <meta name="description" content="Route the HTTP calls between your microservices through Kafka without changing them. Every mutation becomes a real-time stream, with at-most-once side effects and business events declared in OpenAPI.">
+  <title>http-over-kafka: turn every HTTP call into a real-time stream</title>
+  <meta name="description" content="Route the HTTP calls between your microservices through Kafka without changing them. Every business action becomes a real-time stream your company can build on.">
   <meta property="og:title" content="http-over-kafka">
-  <meta property="og:description" content="Put Kafka under your HTTP services without changing them.">
+  <meta property="og:description" content="Turn every HTTP call into a real-time stream. Change nothing in your services.">
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://sderosiaux.github.io/http-over-kafka/">
+  <meta property="og:image" content="https://sderosiaux.github.io/http-over-kafka/og.png">
+  <meta name="twitter:card" content="summary_large_image">
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700;800&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
+  <script>document.documentElement.classList.add("js")</script>
 </head>
 <body>
 
-<header class="topbar">
-  <div class="topbar-inner">
+<header class="nav-wrap">
+  <nav class="nav" aria-label="Main">
     <a class="brand" href="#top" aria-label="http-over-kafka home">
-      <img src="favicon.svg" alt="" width="26" height="26">
+      <img src="favicon.svg" alt="" width="24" height="24">
       <span>http-over-kafka</span>
     </a>
-    <nav class="nav" aria-label="Sections">
-      <a href="#how">How it works</a>
+    <div class="nav-links">
+      <a href="#why">Why</a>
+      <a href="#see">See it</a>
+      <a href="#journey">Adopt</a>
       <a href="#guarantees">Guarantees</a>
-      <a href="#adopt">Get started</a>
-      <a href="#contribute">Contribute</a>
-    </nav>
-    <div class="community">
-      <a class="gh-btn" href="https://github.com/sderosiaux/http-over-kafka" data-gh="stars-link">
-        <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path fill="currentColor" d="M8 .2a8 8 0 0 0-2.5 15.6c.4 0 .5-.2.5-.4v-1.5c-2.2.5-2.7-1-2.7-1-.4-.9-.9-1.2-.9-1.2-.7-.5.1-.5.1-.5.8.1 1.2.8 1.2.8.7 1.3 1.9.9 2.4.7 0-.5.3-.9.5-1.1-1.8-.2-3.6-.9-3.6-4 0-.9.3-1.6.8-2.1-.1-.2-.4-1 .1-2.1 0 0 .7-.2 2.2.8a7.5 7.5 0 0 1 4 0c1.5-1 2.2-.8 2.2-.8.4 1.1.2 1.9.1 2.1.5.6.8 1.3.8 2.1 0 3.1-1.9 3.8-3.7 4 .3.3.6.8.6 1.5v2.2c0 .2.1.5.6.4A8 8 0 0 0 8 .2Z"/></svg>
-        <span>Star</span>
-        <span class="gh-count" data-gh="stars" aria-label="GitHub stars">–</span>
-      </a>
+      <a href="#start">Start</a>
     </div>
-  </div>
+    <a class="gh-pill" href="https://github.com/sderosiaux/http-over-kafka">
+      <svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true"><path fill="currentColor" d="M8 .2a8 8 0 0 0-2.5 15.6c.4 0 .5-.2.5-.4v-1.5c-2.2.5-2.7-1-2.7-1-.4-.9-.9-1.2-.9-1.2-.7-.5.1-.5.1-.5.8.1 1.2.8 1.2.8.7 1.3 1.9.9 2.4.7 0-.5.3-.9.5-1.1-1.8-.2-3.6-.9-3.6-4 0-.9.3-1.6.8-2.1-.1-.2-.4-1 .1-2.1 0 0 .7-.2 2.2.8a7.5 7.5 0 0 1 4 0c1.5-1 2.2-.8 2.2-.8.4 1.1.2 1.9.1 2.1.5.6.8 1.3.8 2.1 0 3.1-1.9 3.8-3.7 4 .3.3.6.8.6 1.5v2.2c0 .2.1.5.6.4A8 8 0 0 0 8 .2Z"/></svg>
+      <span>Star</span>
+      <span class="gh-count" data-gh="stars">–</span>
+    </a>
+  </nav>
 </header>
 
 <main id="top">
 
   <section class="hero">
-    <div class="hero-copy">
-      <h1>Put Kafka under your HTTP services. Change nothing in them.</h1>
-      <p class="lede">http-over-kafka carries the calls between your microservices through Kafka. Callers still get the real response. Services still receive plain HTTP. And every order placed, payment taken or address changed becomes a real-time stream the rest of your company can build on.</p>
-      <div class="hero-actions">
-        <a class="btn btn-primary" href="#adopt">Run it in two minutes</a>
-        <a class="btn btn-quiet" href="https://github.com/sderosiaux/http-over-kafka">Read the code on GitHub</a>
+    <div class="hero-glow" aria-hidden="true"></div>
+    <div class="hero-inner">
+      <a class="hero-badge reveal" href="https://github.com/sderosiaux/http-over-kafka">
+        <span class="dot" aria-hidden="true"></span>
+        Open source, Apache-2.0, started at Conduktor
+      </a>
+      <h1 class="reveal">Turn every HTTP call into a real-time stream.</h1>
+      <p class="hero-sub reveal">Your microservices keep speaking HTTP. http-over-kafka carries their calls through Kafka, so every order, payment and update becomes a live event your whole company can build on. Nothing to rewrite, no Kafka client to add.</p>
+      <div class="hero-cta reveal">
+        <a class="btn btn-ink" href="#start"><span>Run it in two minutes</span><span class="btn-icon" aria-hidden="true"><svg viewBox="0 0 16 16" width="14" height="14"><path d="M4 12 12 4M6 4h6v6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span></a>
+        <a class="btn btn-ghost" href="https://github.com/sderosiaux/http-over-kafka"><span>Star on GitHub</span><span class="btn-icon" aria-hidden="true"><svg viewBox="0 0 16 16" width="14" height="14"><path d="m8 1.8 1.9 3.9 4.3.6-3.1 3 .7 4.3L8 11.6l-3.8 2 .7-4.3-3.1-3 4.3-.6L8 1.8Z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg></span></a>
       </div>
-      <ul class="repo-stats" aria-label="Project at a glance">
+      <ul class="hero-meta reveal" aria-label="Project at a glance">
         <li data-min="10"><strong data-gh="stars">–</strong> stars</li>
         <li data-min="5"><strong data-gh="forks">–</strong> forks</li>
         <li><a href="https://github.com/sderosiaux/http-over-kafka/issues"><strong data-gh="issues">–</strong> <span data-gh-label="issues">open issues</span></a></li>
-        <li>Apache-2.0</li>
-        <li>Go</li>
+        <li>Written in Go</li>
+        <li>Tested against real Kafka</li>
       </ul>
     </div>
 
-    <figure class="wire" aria-label="Animated example: an HTTP call crossing Kafka">
-      <div class="wire-grid">
-        <div class="pane pane-http">
-          <p class="pane-title">What the caller sees</p>
-          <pre class="term" data-term="caller"></pre>
-        </div>
-        <div class="pane pane-log">
-          <p class="pane-title">What Kafka keeps</p>
-          <ol class="log" data-log></ol>
-        </div>
-        <div class="pane pane-http">
-          <p class="pane-title">What the service sees</p>
-          <pre class="term" data-term="service"></pre>
+    <figure class="stage reveal" aria-label="Animation: HTTP services send calls through a Kafka backbone, and new consumers read the stream">
+      <div class="bezel">
+        <div class="bezel-core stage-core">
+          <canvas class="stage-canvas" data-stage></canvas>
+          <div class="stage-legend" aria-hidden="true">
+            <span><i class="sw sw-req"></i>HTTP calls between your services</span>
+            <span><i class="sw sw-log"></i>Kafka keeps every one</span>
+            <span><i class="sw sw-ev"></i>New consumers read them live</span>
+          </div>
         </div>
       </div>
-      <figcaption>Three requests, replayed in a loop. The failed one is recorded as a failure and produces no business event.</figcaption>
     </figure>
   </section>
 
-  <section class="band problem" aria-labelledby="problem-title">
-    <div class="wrap">
-      <h2 id="problem-title">Your business already happens over HTTP. Kafka doesn't see it.</h2>
-      <p class="section-lede">The data that matters flows through request and response, then disappears. Getting it into Kafka usually means one of three projects.</p>
-      <table class="compare">
-        <thead>
-          <tr><th scope="col">Approach</th><th scope="col">What it costs</th><th scope="col">What you still miss</th></tr>
-        </thead>
-        <tbody>
-          <tr><th scope="row">Rewrite services to publish events</th><td data-label="Cost">A Kafka client, an outbox and a schema in every service, team by team, for months</td><td data-label="Still missing">Every service not rewritten yet</td></tr>
-          <tr><th scope="row">Change data capture on each database</th><td data-label="Cost">Access to every team's database and a connector per store</td><td data-label="Still missing">Who called, which operation, and every request that failed</td></tr>
-          <tr><th scope="row">Log traffic from the API gateway</th><td data-label="Cost">Little: a plugin</td><td data-label="Still missing">Completeness. Logs are batched and dropped when Kafka is slow</td></tr>
-          <tr class="ours"><th scope="row">http-over-kafka</th><td data-label="Cost">A gateway in front, a bridge per service, an OpenAPI file you already have</td><td data-label="Effect">Services and teams keep working exactly as before</td></tr>
-        </tbody>
-      </table>
+  <section class="ticker" aria-label="Examples of events produced from HTTP calls">
+    <div class="ticker-track" data-ticker>
+      <span>OrderCreated <em>ord_7Q2K</em></span>
+      <span>PaymentCaptured <em>ch_19XA</em></span>
+      <span>AddressChanged <em>cus_2210</em></span>
+      <span>CartCheckedOut <em>cart_88F</em></span>
+      <span>RefundIssued <em>rf_031</em></span>
+      <span>ShipmentDispatched <em>shp_5C1</em></span>
+      <span>SubscriptionRenewed <em>sub_77Q</em></span>
+      <span>InventoryReserved <em>sku_A123</em></span>
     </div>
   </section>
 
-  <section class="band" aria-labelledby="gain-title">
-    <div class="wrap split">
-      <div>
-        <h2 id="gain-title">What stays the same</h2>
-        <ul class="ticks">
-          <li>Your services keep their code, their frameworks and their deployments. No Kafka client.</li>
-          <li>Callers keep sending HTTP and get the service's real status, headers and body.</li>
-          <li><code>GET</code> requests go straight to the service. Kafka never sees them.</li>
-          <li>Moving a service in or out is a route change. You can go back the same way.</li>
-        </ul>
-      </div>
-      <div>
-        <h2>What you gain</h2>
-        <ul class="ticks ticks-gain">
-          <li>A durable, replayable stream of every mutation, with who called and what happened.</li>
-          <li>Business events like <code>OrderCreated</code>, declared in OpenAPI, published as they happen.</li>
-          <li>New consumers (analytics, search, fraud, AI agents, audit) without asking the owning team.</li>
-          <li>Safer side effects: one execution per request, idempotent retries, signed records.</li>
-        </ul>
-      </div>
-    </div>
-  </section>
-
-  <section class="band how" id="how" aria-labelledby="how-title">
+  <section class="band band-peach" id="why">
     <div class="wrap">
-      <h2 id="how-title">How a request crosses Kafka</h2>
-      <p class="section-lede">For the caller the call stays synchronous. Underneath, the request is written to Kafka before the service is touched, so nothing can happen without leaving a trace.</p>
-      <img class="diagram" src="architecture.svg" alt="Architecture: the caller talks to the gateway, which writes a signed command to Kafka. The bridge consumes it, calls the service over plain HTTP, then writes the response and a result to Kafka in one transaction. The gateway returns the response. The deriver turns results into business events and any consumer can read the stream." loading="lazy">
-      <ol class="steps">
-        <li><h3>The caller sends plain HTTP</h3><p>The gateway checks the caller's token, finds the operation in the service's OpenAPI and strips secrets like <code>Authorization</code>.</p></li>
-        <li><h3>The command is written first</h3><p>A signed command lands in <code>http.requests.orders</code>, acknowledged by Kafka before anything else happens.</p></li>
-        <li><h3>The bridge calls your service, once</h3><p>It records that the call is starting, then sends an ordinary HTTP request. Your service never knows Kafka was involved.</p></li>
-        <li><h3>Response and result are stored together</h3><p>One Kafka transaction holds the response, the result (<code>CreateOrderSucceeded</code>) and the deduplication state.</p></li>
-        <li><h3>The caller gets the real answer</h3><p>Same status, same headers, same bytes. Meanwhile the deriver publishes <code>OrderCreated</code> if your OpenAPI declares it.</p></li>
+      <div class="section-head reveal">
+        <span class="tag tag-peach">For platform teams</span>
+        <h2>Your company wants real time. Your services speak HTTP.</h2>
+        <p>The business asks for live dashboards, instant fraud checks, personalization, AI agents that react as things happen. The data is already there, flowing through your HTTP calls every second. It just disappears once the response is sent.</p>
+      </div>
+
+      <ol class="acts">
+        <li class="act reveal">
+          <div class="act-art" aria-hidden="true">
+            <svg viewBox="0 0 220 120"><g fill="none" stroke-width="2"><rect x="10" y="40" width="54" height="40" rx="10" stroke="#94a3b8"/><rect x="156" y="40" width="54" height="40" rx="10" stroke="#94a3b8"/><path d="M68 55h80M148 66H68" stroke="#cbd5e1" stroke-dasharray="4 5"/></g><circle cx="108" cy="55" r="5" fill="#cbd5e1"/><text x="110" y="106" text-anchor="middle" font-size="11" fill="#94a3b8" font-family="Geist Mono, monospace">response sent, data gone</text></svg>
+          </div>
+          <h3>Today</h3>
+          <p>Services call each other over HTTP. Each call carries a business fact, and nobody else ever sees it.</p>
+        </li>
+        <li class="act reveal">
+          <div class="act-art" aria-hidden="true">
+            <svg viewBox="0 0 220 120"><g fill="none" stroke-width="2"><rect x="10" y="40" width="54" height="40" rx="10" stroke="#6366f1"/><rect x="156" y="40" width="54" height="40" rx="10" stroke="#6366f1"/><path d="M68 60h80" stroke="#6366f1"/></g><rect x="78" y="76" width="64" height="16" rx="4" fill="#fdba74"/><rect x="82" y="80" width="10" height="8" rx="2" fill="#fff"/><rect x="96" y="80" width="10" height="8" rx="2" fill="#fff"/><rect x="110" y="80" width="10" height="8" rx="2" fill="#fff"/><path d="M110 62v12" stroke="#f97316" stroke-width="2"/><text x="110" y="110" text-anchor="middle" font-size="11" fill="#c2410c" font-family="Geist Mono, monospace">every call recorded</text></svg>
+          </div>
+          <h3>With http-over-kafka</h3>
+          <p>The same calls, the same code. Kafka sits underneath and records each one as a durable, ordered event.</p>
+        </li>
+        <li class="act reveal">
+          <div class="act-art" aria-hidden="true">
+            <svg viewBox="0 0 220 120"><rect x="20" y="52" width="90" height="16" rx="4" fill="#fdba74"/><g fill="none" stroke="#10b981" stroke-width="2"><path d="M110 60c30 0 30-36 60-36M110 60h60M110 60c30 0 30 36 60 36"/></g><g fill="#10b981"><circle cx="178" cy="24" r="8"/><circle cx="178" cy="60" r="8"/><circle cx="178" cy="96" r="8"/></g><text x="64" y="110" text-anchor="middle" font-size="11" fill="#047857" font-family="Geist Mono, monospace">read live, anywhere</text></svg>
+          </div>
+          <h3>Tomorrow</h3>
+          <p>Analytics, fraud, search, AI agents and audit subscribe to the stream. The teams that own the services don't have to do anything.</p>
+        </li>
       </ol>
     </div>
   </section>
 
-  <section class="band guarantees" id="guarantees" aria-labelledby="g-title">
+  <section class="band band-mint" id="see">
     <div class="wrap">
-      <h2 id="g-title">What happens when things break</h2>
-      <p class="section-lede">Putting Kafka between two services is easy. Not charging a card twice when a process dies halfway is the actual work. These are the answers a caller gets, and whether the service runs.</p>
-      <div class="table-scroll">
-        <table class="outcomes">
-          <thead><tr><th scope="col">Situation</th><th scope="col">The caller receives</th><th scope="col">The service runs</th></tr></thead>
-          <tbody>
-            <tr><td>Everything works</td><td>The service's own response</td><td class="n1">Once</td></tr>
-            <tr><td>The gateway gives up waiting</td><td><code>504</code> with the request ID. The command keeps running</td><td class="n1">Once, later</td></tr>
-            <tr><td>Retry with the same <code>Idempotency-Key</code></td><td>The original response, marked <code>Idempotent-Replayed</code></td><td class="n0">No</td></tr>
-            <tr><td>Same key, different body</td><td><code>422</code></td><td class="n0">No</td></tr>
-            <tr><td>The bridge dies after calling the service</td><td><code>502 outcome_unknown</code>, never a silent retry</td><td class="n1">Once</td></tr>
-            <tr><td>Kafka refuses the command</td><td><code>503</code>, guaranteed not applied</td><td class="n0">No</td></tr>
-            <tr><td>A forged response is injected into Kafka</td><td>The real response. The forgery is rejected</td><td class="n1">Once</td></tr>
-          </tbody>
-        </table>
+      <div class="section-head reveal">
+        <span class="tag tag-mint">Live example</span>
+        <h2>The caller sees HTTP. The service sees HTTP. Kafka sees everything.</h2>
+        <p>Three real requests, replayed in a loop. Watch the failed one: it is recorded as a failure and produces no business event. Watch the retry: the service is not called twice.</p>
       </div>
-
-      <div class="proof">
-        <div class="proof-text">
-          <h3>We tried hard to break it</h3>
-          <p>The end-to-end suite builds the real binaries and attacks them: processes killed and frozen at random, Kafka paused, partitions added, state wiped, records forged. The payment service's own debit counter is the judge.</p>
-          <p>Writing it uncovered five ways to debit a card twice, all through operator actions. Each one is fixed and has a regression test.</p>
+      <figure class="bezel reveal">
+        <div class="bezel-core wire-grid">
+          <div class="pane">
+            <p class="pane-title"><span class="pill pill-req">Caller</span> checkout service</p>
+            <pre class="term" data-term="caller"></pre>
+          </div>
+          <div class="pane pane-log">
+            <p class="pane-title"><span class="pill pill-log">Kafka</span> what it keeps</p>
+            <ol class="log" data-log></ol>
+          </div>
+          <div class="pane">
+            <p class="pane-title"><span class="pill pill-req">Service</span> orders, unchanged</p>
+            <pre class="term" data-term="service"></pre>
+          </div>
         </div>
-        <dl class="figures">
-          <div><dt>Chaos runs, 2,800 to 8,200 requests each</dt><dd>8</dd></div>
-          <div><dt>Double debits across all of them</dt><dd>0</dd></div>
-          <div><dt>Added latency at P50, one request at a time</dt><dd>+2.1 ms</dd></div>
-          <div><dt>Worst added latency at P99, eight concurrent requests</dt><dd>+15 ms</dd></div>
-        </dl>
-        <p class="fine">Latency measured on one laptop, single broker, replication factor 1. Expect more with three replicas; that measurement is next on the roadmap.</p>
+      </figure>
+    </div>
+  </section>
+
+  <section class="band band-white">
+    <div class="wrap">
+      <div class="section-head reveal">
+        <span class="tag tag-indigo">What you get</span>
+        <h2>A streaming backbone your teams don't have to build.</h2>
+      </div>
+      <div class="bento">
+        <article class="cell cell-a reveal">
+          <div class="cell-core">
+            <h3>Zero change in your services</h3>
+            <p>No Kafka client, no outbox, no new deployment. Callers keep their HTTP calls and get the service's exact response, byte for byte.</p>
+            <div class="diff" aria-hidden="true">
+              <div class="diff-row"><span>Service code</span><span class="diff-v same">unchanged</span></div>
+              <div class="diff-row"><span>Caller code</span><span class="diff-v same">unchanged</span></div>
+              <div class="diff-row"><span>HTTP status, headers, body</span><span class="diff-v same">identical</span></div>
+              <div class="diff-row"><span>Kafka topics</span><span class="diff-v new">+ every mutation</span></div>
+            </div>
+          </div>
+        </article>
+        <article class="cell cell-b reveal">
+          <div class="cell-core">
+            <h3>Events from your API contract</h3>
+            <p>Declare <code>OrderCreated</code> in the OpenAPI file. It is published only when the service really answers <code>201</code>.</p>
+            <pre class="mini-code"><code><span class="k">x-conduktor-event:</span>
+  <span class="k">on:</span> 201
+  <span class="k">type:</span> OrderCreated
+  <span class="k">key:</span> $.response.body.id</code></pre>
+          </div>
+        </article>
+        <article class="cell cell-c reveal">
+          <div class="cell-core">
+            <h3>Side effects run once</h3>
+            <p>A process dies mid-call? The caller gets an explicit "outcome unknown", never a silent second charge.</p>
+          </div>
+        </article>
+        <article class="cell cell-d reveal">
+          <div class="cell-core">
+            <h3>Signed and audited</h3>
+            <p>Every record is signed by its producer. Caller secrets never enter Kafka. Who called what is on the record.</p>
+          </div>
+        </article>
+        <article class="cell cell-e reveal">
+          <div class="cell-core">
+            <h3>Reversible at every step</h3>
+            <p>Moving a service in or out is a route change. Reads go straight to the service and never touch Kafka.</p>
+          </div>
+        </article>
       </div>
     </div>
   </section>
 
-  <section class="band adopt" id="adopt" aria-labelledby="adopt-title">
+  <section class="band band-sky" id="journey">
     <div class="wrap">
-      <h2 id="adopt-title">Get started in four steps</h2>
-      <ol class="adopt-steps">
-        <li>
-          <div class="step-text"><h3>Run the demo stack</h3><p>Kafka, two demo services, the gateway, the bridges, the deriver and the audit consumer. Requires Docker and Go 1.26.</p></div>
+      <div class="section-head reveal">
+        <span class="tag tag-sky">The path to real time</span>
+        <h2>Adopt streaming one service at a time.</h2>
+        <p>No big-bang migration. Each step works on its own and delivers value before the next one.</p>
+      </div>
+      <ol class="journey">
+        <li class="reveal"><span class="j-num">1</span><h3>Route one service</h3><p>Put a single service behind the gateway. Its callers switch hostname. Nothing else moves.</p></li>
+        <li class="reveal"><span class="j-num">2</span><h3>See its traffic as a stream</h3><p>Every mutation is now in Kafka with its caller and outcome. Plug in audit or analytics right away.</p></li>
+        <li class="reveal"><span class="j-num">3</span><h3>Name your business events</h3><p>Declare <code>OrderCreated</code> or <code>PaymentCaptured</code> in the API contract. Other teams subscribe to facts, not logs.</p></li>
+        <li class="reveal"><span class="j-num">4</span><h3>Grow the backbone</h3><p>Add the next service, and the next. The stream of your business fills in without a rewrite anywhere.</p></li>
+      </ol>
+    </div>
+  </section>
+
+  <section class="band band-white" id="how">
+    <div class="wrap">
+      <div class="section-head reveal">
+        <span class="tag tag-indigo">Under the hood</span>
+        <h2>How one request crosses Kafka.</h2>
+        <p>The request is written to Kafka before the service is touched, so nothing can happen without leaving a trace. For the caller, the call stays synchronous.</p>
+      </div>
+      <figure class="bezel reveal">
+        <div class="bezel-core diagram-core">
+          <img class="diagram" src="architecture.svg" alt="The caller talks to the gateway, which writes a signed command to Kafka. The bridge consumes it, calls the service over plain HTTP, then writes the response and a result to Kafka in one transaction. The gateway returns the response. The deriver turns results into business events." loading="lazy">
+        </div>
+      </figure>
+    </div>
+  </section>
+
+  <section class="band band-lavender" id="guarantees">
+    <div class="wrap">
+      <div class="section-head reveal">
+        <span class="tag tag-indigo">When things break</span>
+        <h2>Putting Kafka in the middle is easy. Never charging twice is the work.</h2>
+        <p>What a caller receives, and whether the service runs, in every case that matters.</p>
+      </div>
+      <div class="bezel reveal">
+        <div class="bezel-core table-core">
+          <table class="outcomes">
+            <thead><tr><th scope="col">Situation</th><th scope="col">The caller receives</th><th scope="col">The service runs</th></tr></thead>
+            <tbody>
+              <tr><td>Everything works</td><td>The service's own response</td><td><span class="runs runs-1">Once</span></td></tr>
+              <tr><td>The gateway gives up waiting</td><td><code>504</code> with the request ID, the command keeps going</td><td><span class="runs runs-1">Once, later</span></td></tr>
+              <tr><td>Retry with the same <code>Idempotency-Key</code></td><td>The original response, marked replayed</td><td><span class="runs runs-0">No</span></td></tr>
+              <tr><td>The bridge dies after calling the service</td><td><code>502 outcome_unknown</code>, never a silent retry</td><td><span class="runs runs-1">Once</span></td></tr>
+              <tr><td>Kafka refuses the command</td><td><code>503</code>, guaranteed not applied</td><td><span class="runs runs-0">No</span></td></tr>
+              <tr><td>A forged response is injected</td><td>The real response, the forgery is rejected</td><td><span class="runs runs-1">Once</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="stats">
+        <div class="stat stat-indigo reveal"><span class="stat-n" data-count="8">8</span><span class="stat-l">chaos runs that kill and freeze processes and Kafka at random</span></div>
+        <div class="stat stat-mint reveal"><span class="stat-n">0</span><span class="stat-l">double charges, across 2,800 to 8,200 requests per run</span></div>
+        <div class="stat stat-peach reveal"><span class="stat-n">+2.1<small>ms</small></span><span class="stat-l">added at P50, one request at a time</span></div>
+        <div class="stat stat-sky reveal"><span class="stat-n">+15<small>ms</small></span><span class="stat-l">worst added P99, eight concurrent requests</span></div>
+      </div>
+      <p class="fine reveal">Measured on one laptop, single broker, replication factor 1. Multi-broker numbers are next on the roadmap. Writing the test suite uncovered five ways to charge twice; each is fixed and covered by a regression test.</p>
+    </div>
+  </section>
+
+  <section class="band band-white" id="start">
+    <div class="wrap">
+      <div class="section-head reveal">
+        <span class="tag tag-mint">Get started</span>
+        <h2>From clone to your first event in four steps.</h2>
+      </div>
+      <ol class="steps">
+        <li class="step reveal">
+          <div class="step-text"><span class="j-num">1</span><h3>Run the demo stack</h3><p>Kafka, two demo services, the gateway, the bridges, the event deriver and an audit consumer. Requires Docker and Go 1.26.</p></div>
           <div class="code"><button class="copy" type="button">Copy</button><pre><code>git clone https://github.com/sderosiaux/http-over-kafka
 cd http-over-kafka
 make up
 ./scripts/demo.sh</code></pre></div>
         </li>
-        <li>
-          <div class="step-text"><h3>Put one of your services behind the gateway</h3><p>Register it with the gateway and give both the gateway and its bridge the service's OpenAPI file. Callers switch to the gateway's hostname.</p></div>
+        <li class="step reveal">
+          <div class="step-text"><span class="j-num">2</span><h3>Put one of your services behind it</h3><p>Register the service with the gateway, give the gateway and the bridge its OpenAPI file, and point callers at the gateway's hostname.</p></div>
           <div class="code"><button class="copy" type="button">Copy</button><pre><code># gateway
 HOK_SERVICES=orders=http://orders:8081
-HOK_SPEC_DIR=/specs        # contains orders.openapi.yaml
+HOK_SPEC_DIR=/specs        # orders.openapi.yaml
 
 # bridge, one per service
 HOK_SERVICE=orders
 HOK_UPSTREAM=http://orders:8081</code></pre></div>
         </li>
-        <li>
-          <div class="step-text"><h3>Declare the events you care about</h3><p>A few lines in the OpenAPI file. The event is published only when the service actually answers <code>201</code>.</p></div>
+        <li class="step reveal">
+          <div class="step-text"><span class="j-num">3</span><h3>Declare the events you care about</h3><p>A few lines in the OpenAPI file. The event is published only when the service answers <code>201</code>.</p></div>
           <div class="code"><button class="copy" type="button">Copy</button><pre><code>post:
   operationId: createOrder
   x-conduktor-event:
@@ -201,52 +302,38 @@ HOK_UPSTREAM=http://orders:8081</code></pre></div>
     key: $.response.body.id
     value:
       id: $.response.body.id
-      customerId: $.request.body.customerId
-      items: $.request.body.items</code></pre></div>
+      customerId: $.request.body.customerId</code></pre></div>
         </li>
-        <li>
-          <div class="step-text"><h3>Subscribe from anywhere</h3><p>Events are CloudEvents with the request ID as <code>ce_id</code>. Any Kafka consumer can read them, now or later.</p></div>
-          <div class="code"><button class="copy" type="button">Copy</button><pre><code>kafka-console-consumer.sh --bootstrap-server localhost:9092 \
+        <li class="step reveal">
+          <div class="step-text"><span class="j-num">4</span><h3>Subscribe from anywhere</h3><p>Events are CloudEvents with the request ID as <code>ce_id</code>. Any Kafka consumer can read them, now or later.</p></div>
+          <div class="code"><button class="copy" type="button">Copy</button><pre><code>kafka-console-consumer.sh \
+  --bootstrap-server localhost:9092 \
   --topic orders.events --from-beginning \
-  --isolation-level read_committed \
-  --property print.headers=true</code></pre></div>
+  --isolation-level read_committed</code></pre></div>
         </li>
       </ol>
     </div>
   </section>
 
-  <section class="band limits" aria-labelledby="limits-title">
-    <div class="wrap split">
-      <div>
-        <h2 id="limits-title">Where it stands</h2>
-        <p>The project is experimental. It is built to evaluate the approach on real services, and it is honest about what is not done yet.</p>
-        <p><a href="https://github.com/sderosiaux/http-over-kafka#status-and-limits">Read all the limits and design decisions</a></p>
+  <section class="band band-sunrise" id="contribute">
+    <div class="wrap contribute">
+      <div class="section-head reveal">
+        <span class="tag tag-white">Build it with us</span>
+        <h2>Real time shouldn't require a rewrite. Help make it the default.</h2>
+        <p>The project is experimental and moving fast. Every change starts as an issue or a pull request. Pick a roadmap item, propose your own, or tell us how you would use it.</p>
       </div>
-      <ul class="plain">
-        <li>Kafka is in the write path: if Kafka is down, mutations fail and reads keep working.</li>
-        <li>No double execution relies on callers retrying with an <code>Idempotency-Key</code>.</li>
-        <li>Not yet measured on a multi-broker cluster with three replicas.</li>
-        <li>No WebSocket, server-sent events, streaming bodies or multipart.</li>
-      </ul>
-    </div>
-  </section>
-
-  <section class="band contribute" id="contribute" aria-labelledby="c-title">
-    <div class="wrap">
-      <h2 id="c-title">Shape what comes next</h2>
-      <p class="section-lede">Every change starts as an issue or a pull request. Pick something from the roadmap, propose your own, or tell us how you would use it.</p>
-      <ol class="roadmap">
-        <li><a href="https://github.com/sderosiaux/http-over-kafka/issues/new?labels=enhancement&title=Measure+latency+and+failures+on+a+3-broker+cluster+with+RF%3D3">Latency and failure tests on three brokers with RF=3</a></li>
-        <li><a href="https://github.com/sderosiaux/http-over-kafka/issues/new?labels=enhancement&title=Asynchronous+mode+(202+Accepted)">An asynchronous mode, so Kafka absorbs load and outages</a></li>
-        <li><a href="https://github.com/sderosiaux/http-over-kafka/issues/new?labels=enhancement&title=Serve+GET+from+a+projection+of+the+mutation+stream">Reads served from a projection of the stream</a></li>
-        <li><a href="https://github.com/sderosiaux/http-over-kafka/issues/new?labels=enhancement&title=Publish+event+schemas+to+a+schema+registry">Event schemas published to a schema registry</a></li>
-        <li><a href="https://github.com/sderosiaux/http-over-kafka/issues/new?labels=enhancement&title=Container+images+and+Helm+chart">Container images and a Helm chart</a></li>
-      </ol>
-      <div class="contribute-actions">
-        <a class="btn btn-primary" href="https://github.com/sderosiaux/http-over-kafka/issues/new/choose">Open an issue</a>
-        <a class="btn btn-quiet" href="https://github.com/sderosiaux/http-over-kafka/blob/main/CONTRIBUTING.md">Send a pull request</a>
-        <a class="link-quiet" href="https://github.com/sderosiaux/http-over-kafka/security/advisories/new">Report a vulnerability privately</a>
+      <div class="roadmap reveal">
+        <a href="https://github.com/sderosiaux/http-over-kafka/issues/new?labels=enhancement&title=Measure+latency+and+failures+on+a+3-broker+cluster+with+RF%3D3">Benchmarks on three brokers</a>
+        <a href="https://github.com/sderosiaux/http-over-kafka/issues/new?labels=enhancement&title=Asynchronous+mode+(202+Accepted)">Asynchronous mode</a>
+        <a href="https://github.com/sderosiaux/http-over-kafka/issues/new?labels=enhancement&title=Serve+GET+from+a+projection+of+the+mutation+stream">Reads from the stream</a>
+        <a href="https://github.com/sderosiaux/http-over-kafka/issues/new?labels=enhancement&title=Publish+event+schemas+to+a+schema+registry">Schema registry</a>
+        <a href="https://github.com/sderosiaux/http-over-kafka/issues/new?labels=enhancement&title=Container+images+and+Helm+chart">Helm chart</a>
       </div>
+      <div class="hero-cta reveal">
+        <a class="btn btn-ink" href="https://github.com/sderosiaux/http-over-kafka/issues/new/choose"><span>Open an issue</span><span class="btn-icon" aria-hidden="true"><svg viewBox="0 0 16 16" width="14" height="14"><path d="M8 3v10M3 8h10" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></span></a>
+        <a class="btn btn-ghost btn-on-color" href="https://github.com/sderosiaux/http-over-kafka/blob/main/CONTRIBUTING.md"><span>Send a pull request</span><span class="btn-icon" aria-hidden="true"><svg viewBox="0 0 16 16" width="14" height="14"><path d="M4 12 12 4M6 4h6v6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span></a>
+      </div>
+      <p class="vuln reveal">Found a security issue? <a href="https://github.com/sderosiaux/http-over-kafka/security/advisories/new">Report it privately</a>.</p>
     </div>
   </section>
 
@@ -254,12 +341,16 @@ HOK_UPSTREAM=http://orders:8081</code></pre></div>
 
 <footer class="footer">
   <div class="wrap footer-inner">
-    <p>http-over-kafka is open source under the Apache License 2.0. Started at <a href="https://www.conduktor.io">Conduktor</a>.</p>
+    <div class="footer-brand">
+      <img src="favicon.svg" alt="" width="22" height="22">
+      <span>http-over-kafka</span>
+    </div>
+    <p>Open source under the Apache License 2.0. Started at <a href="https://www.conduktor.io">Conduktor</a>.</p>
     <nav aria-label="Project links">
       <a href="https://github.com/sderosiaux/http-over-kafka">GitHub</a>
       <a href="https://github.com/sderosiaux/http-over-kafka/blob/main/docs/SPEC.md">Design decisions</a>
+      <a href="https://github.com/sderosiaux/http-over-kafka#status-and-limits">Limits</a>
       <a href="https://github.com/sderosiaux/http-over-kafka/blob/main/CONTRIBUTING.md">Contributing</a>
-      <a href="https://github.com/sderosiaux/http-over-kafka/blob/main/SECURITY.md">Security</a>
     </nav>
   </div>
 </footer>
