@@ -21,19 +21,21 @@ import (
 // tests separately exercise the actual transaction boundaries.
 func TestExpiredCommandRecoveryPreservesExecutionEvidence(t *testing.T) {
 	for _, tc := range []struct {
-		name       string
-		replayable bool
-		marker     string // own or foreign started marker, done, or empty
-		prior      wire.Outcome
-		called     bool
-		known      bool
-		advance    bool // expire between verification and the execution check
-		want       wire.Fault
+		name        string
+		replayable  bool
+		marker      string // own or foreign started marker, done, or empty
+		prior       wire.Outcome
+		called      bool
+		known       bool
+		advance     bool // expire between verification and the execution check
+		unavailable bool // an inherited attempt may have run, but this retry cannot connect
+		want        wire.Fault
 	}{
 		{name: "own marker before call", marker: "own", want: wire.FaultCommandStale},
 		{name: "foreign marker", marker: "foreign", want: wire.FaultOutcomeUnknown},
 		{name: "foreign replayable marker", replayable: true, marker: "foreign", want: wire.FaultOutcomeUnknown},
 		{name: "foreign replayable marker expires before call", replayable: true, marker: "foreign", advance: true, want: wire.FaultOutcomeUnknown},
+		{name: "foreign replayable marker and unavailable retry", replayable: true, marker: "foreign", unavailable: true, want: wire.FaultOutcomeUnknown},
 		{name: "known result with own marker", marker: "own", called: true, known: true},
 		{name: "known result with foreign marker", marker: "foreign", called: true, known: true},
 		{name: "known replayable result with foreign marker", marker: "foreign", replayable: true, called: true, known: true},
@@ -50,6 +52,11 @@ func TestExpiredCommandRecoveryPreservesExecutionEvidence(t *testing.T) {
 				w.WriteHeader(http.StatusCreated)
 			}))
 			defer srv.Close()
+			if tc.unavailable {
+				if err := srv.Listener.Close(); err != nil {
+					t.Fatal(err)
+				}
+			}
 			cmd := command("/charges", []byte(`{}`), nil)
 			cmd.Service = "expiration"
 			specData := api.Payments
@@ -79,7 +86,7 @@ func TestExpiredCommandRecoveryPreservesExecutionEvidence(t *testing.T) {
 				Log: slog.New(slog.NewTextHandler(io.Discard, nil)),
 				Now: func() time.Time {
 					reads++
-					if tc.advance && reads == 1 {
+					if tc.unavailable || (tc.advance && reads == 1) {
 						return cmd.IssuedAt
 					}
 					return expired
