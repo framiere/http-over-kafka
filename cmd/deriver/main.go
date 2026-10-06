@@ -31,7 +31,6 @@ import (
 	"github.com/sderosiaux/http-over-kafka/internal/events"
 	"github.com/sderosiaux/http-over-kafka/internal/identity"
 	"github.com/sderosiaux/http-over-kafka/internal/kafkaenv"
-	"github.com/twmb/franz-go/pkg/kadm"
 	"github.com/twmb/franz-go/pkg/kgo"
 )
 
@@ -109,5 +108,5 @@ func provision(ctx context.Context, brokers []string, topics []kafkaenv.Topic) e
 	defer cl.Close()
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
-	return kafkaenv.EnsureTopics(ctx, kadm.NewClient(cl), topics...)
+	return kafkaenv.EnsureTopics(ctx, cl, topics...)
 }

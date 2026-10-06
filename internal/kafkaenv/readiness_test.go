@@ -95,7 +95,7 @@ func TestEnsureTopicsHonorsCanceledContext(t *testing.T) {
 	defer cl.Close()
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
-	if err := EnsureTopics(ctx, kadm.NewClient(cl), Topic{Name: "orders", Partitions: 1}); !errors.Is(err, context.Canceled) {
+	if err := EnsureTopics(ctx, cl, Topic{Name: "orders", Partitions: 1}); !errors.Is(err, context.Canceled) {
 		t.Fatalf("provisioning ignored canceled context: %v", err)
 	}
 }

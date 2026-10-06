@@ -184,7 +184,7 @@ func (g *Gateway) Run(ctx context.Context) error {
 
 	var start int64
 	for backoff := 250 * time.Millisecond; ; backoff = min(backoff*2, maxPrepareBackoff) {
-		if start, err = g.prepare(ctx, kadm.NewClient(producer), replyTopic); err == nil {
+		if start, err = g.prepare(ctx, producer, replyTopic); err == nil {
 			break
 		}
 		g.log.Warn("kafka not ready, retrying", "err", err, "in", backoff)
@@ -256,7 +256,7 @@ const (
 	maxPrepareBackoff = 2 * time.Second
 )
 
-func (g *Gateway) prepare(ctx context.Context, adm *kadm.Client, replyTopic string) (int64, error) {
+func (g *Gateway) prepare(ctx context.Context, cl *kgo.Client, replyTopic string) (int64, error) {
 	ctx, cancel := context.WithTimeout(ctx, prepareTimeout)
 	defer cancel()
 	// Each topic has one creator, its producer: the gateway creates the
@@ -266,10 +266,10 @@ func (g *Gateway) prepare(ctx context.Context, adm *kadm.Client, replyTopic stri
 	for name := range g.services {
 		topics = append(topics, kafkaenv.CommandTopic(name, g.cfg.Partitions))
 	}
-	if err := kafkaenv.EnsureTopics(ctx, adm, topics...); err != nil {
+	if err := kafkaenv.EnsureTopics(ctx, cl, topics...); err != nil {
 		return 0, err
 	}
-	ends, err := adm.ListEndOffsets(ctx, replyTopic)
+	ends, err := kadm.NewClient(cl).ListEndOffsets(ctx, replyTopic)
 	if err != nil {
 		return 0, err
 	}
