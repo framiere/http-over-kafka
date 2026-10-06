@@ -12,6 +12,8 @@ import (
 	"github.com/sderosiaux/http-over-kafka/internal/kafkaenv"
 	"github.com/sderosiaux/http-over-kafka/internal/kafkatest"
 	"github.com/sderosiaux/http-over-kafka/internal/wire"
+	"github.com/twmb/franz-go/pkg/kadm"
+	"github.com/twmb/franz-go/pkg/kerr"
 	"github.com/twmb/franz-go/pkg/kgo"
 )
 
@@ -147,7 +149,7 @@ func TestEnsureTopicsIsIdempotent(t *testing.T) {
 	bad := "bogus"
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	err := kafkaenv.EnsureTopics(ctx, kafkatest.Admin(t), kafkaenv.Topic{
+	err := kafkaenv.EnsureTopics(ctx, kafkatest.Client(t), kafkaenv.Topic{
 		Name: kafkatest.Service(t, "svc"), Partitions: 1, Configs: map[string]*string{"retention.ms": &bad},
 	})
 	if err == nil {
@@ -170,5 +172,32 @@ func TestEnsureTopicsPreservesExistingLayout(t *testing.T) {
 	}
 	if actual, ok := details[topic.Name]; !ok || actual.Err != nil || len(actual.Partitions) != 1 {
 		t.Fatalf("existing layout changed or is not ready: %+v", actual)
+	}
+}
+
+// A failed metadata lookup may be cached longer than a startup attempt.
+// Provisioning must refresh it, and the same client must immediately be
+// able to query offsets after creation, without resetting its other state.
+func TestEnsureTopicsRefreshesCachedMetadata(t *testing.T) {
+	cl := kafkatest.Client(t, kgo.MetadataMinAge(time.Minute))
+	adm := kadm.NewClient(cl)
+	topic := kafkaenv.CommandTopic(kafkatest.Service(t, "fresh"), 1)
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+	details, err := adm.ListTopics(ctx, topic.Name)
+	if err != nil || details[topic.Name].Err != kerr.UnknownTopicOrPartition {
+		t.Fatalf("expected cached negative lookup: details=%+v error=%v", details, err)
+	}
+	readyCtx, readyCancel := context.WithTimeout(ctx, 3*time.Second)
+	defer readyCancel()
+	if err := kafkaenv.EnsureTopics(readyCtx, cl, topic); err != nil {
+		t.Fatal(err)
+	}
+	ends, err := adm.ListEndOffsets(readyCtx, topic.Name)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if end, ok := ends.Lookup(topic.Name, 0); !ok || end.Err != nil || end.Offset != 0 {
+		t.Fatalf("provisioning left stale metadata for offset reads: %+v", ends)
 	}
 }

@@ -202,7 +202,7 @@ func CreateTopics(t testing.TB, topics ...kafkaenv.Topic) {
 	t.Helper()
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	if err := kafkaenv.EnsureTopics(ctx, Admin(t), topics...); err != nil {
+	if err := kafkaenv.EnsureTopics(ctx, Client(t), topics...); err != nil {
 		t.Fatal(err)
 	}
 }

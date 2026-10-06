@@ -17,6 +17,7 @@ import (
 	"github.com/twmb/franz-go/pkg/kadm"
 	"github.com/twmb/franz-go/pkg/kerr"
 	"github.com/twmb/franz-go/pkg/kgo"
+	"github.com/twmb/franz-go/pkg/kmsg"
 )
 
 const BrokersEnv = "KAFKA_BROKERS"
@@ -93,14 +94,14 @@ func EventTopic(name string, partitions int32) Topic {
 // leader for every partition. The wait does not establish replica health or
 // reconcile partition counts or configs of existing topics. The entire call
 // is bounded by 30 seconds, or by ctx's deadline when earlier.
-// The admin client's MetadataMinAge still applies: a shorter deadline may
-// expire before cached transient metadata is refreshed.
-func EnsureTopics(ctx context.Context, adm *kadm.Client, topics ...Topic) error {
+// Readiness polls fresh metadata rather than a cached pre-creation lookup.
+func EnsureTopics(ctx context.Context, cl *kgo.Client, topics ...Topic) error {
 	if len(topics) == 0 {
 		return nil
 	}
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
+	adm := kadm.NewClient(cl)
 	var errs []error
 	names := make([]string, 0, len(topics))
 	for _, t := range topics {
@@ -117,7 +118,36 @@ func EnsureTopics(ctx context.Context, adm *kadm.Client, topics ...Topic) error 
 	// CreateTopics acknowledges the controller's change before every broker
 	// can describe it. Consumers must not start from missing or leaderless
 	// metadata and mistake that transient state for lost durable data.
-	return waitForTopics(ctx, adm.ListTopics, names)
+	return waitForTopics(ctx, func(ctx context.Context, names ...string) (kadm.TopicDetails, error) {
+		return freshTopicMetadata(ctx, cl, names)
+	}, names)
+}
+
+// A direct Metadata request refreshes the client's admin metadata cache.
+// kadm.ListTopics may reuse a cached absence longer than a startup attempt
+// lasts. Refreshing only metadata preserves producer and consumer state.
+func freshTopicMetadata(ctx context.Context, cl *kgo.Client, names []string) (kadm.TopicDetails, error) {
+	req := kmsg.NewPtrMetadataRequest()
+	req.AllowAutoTopicCreation = false
+	for _, name := range names {
+		req.Topics = append(req.Topics, kmsg.MetadataRequestTopic{Topic: kmsg.StringPtr(name)})
+	}
+	resp, err := req.RequestWith(ctx, cl)
+	if err != nil {
+		return nil, err
+	}
+	details := make(kadm.TopicDetails, len(resp.Topics))
+	for _, topic := range resp.Topics {
+		if topic.Topic == nil {
+			continue
+		}
+		detail := kadm.TopicDetail{Topic: *topic.Topic, Err: kerr.ErrorForCode(topic.ErrorCode), Partitions: kadm.PartitionDetails{}}
+		for _, p := range topic.Partitions {
+			detail.Partitions[p.Partition] = kadm.PartitionDetail{Leader: p.Leader, Err: kerr.ErrorForCode(p.ErrorCode)}
+		}
+		details[detail.Topic] = detail
+	}
+	return details, nil
 }
 
 func waitForTopics(ctx context.Context, list func(context.Context, ...string) (kadm.TopicDetails, error), names []string) error {

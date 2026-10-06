@@ -387,7 +387,7 @@ func (b *Bridge) prepareTopics(ctx context.Context) error {
 		two := "2"
 		state.Configs["min.insync.replicas"] = &two
 	}
-	if err := kafkaenv.EnsureTopics(ctx, b.admin, kafkaenv.ResultTopic(b.cfg.Service, int32(n)), state); err != nil {
+	if err := kafkaenv.EnsureTopics(ctx, b.base, kafkaenv.ResultTopic(b.cfg.Service, int32(n)), state); err != nil {
 		return err
 	}
 	resultTopic := wire.ResultTopic(b.cfg.Service)
@@ -461,7 +461,7 @@ func (e *layoutError) Error() string {
 func (b *Bridge) checkLayout(ctx context.Context, n int) error {
 	compact := "compact"
 	topic := LayoutTopic(b.cfg.Service)
-	if err := kafkaenv.EnsureTopics(ctx, b.admin, kafkaenv.Topic{Name: topic, Partitions: 1, Configs: map[string]*string{"cleanup.policy": &compact}}); err != nil {
+	if err := kafkaenv.EnsureTopics(ctx, b.base, kafkaenv.Topic{Name: topic, Partitions: 1, Configs: map[string]*string{"cleanup.policy": &compact}}); err != nil {
 		return err
 	}
 	if err := b.checkStateConfig(ctx); err != nil {
