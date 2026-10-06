@@ -848,8 +848,12 @@ func signedState(e *env, p int32, key string, value []byte) *kgo.Record {
 }
 
 // signStateWith mirrors the bridge's state record signature (state.go).
-func signStateWith(s *identity.Signer, topic string, p int32, key string, value []byte) *kgo.Record {
-	sig := s.Sign("http-over-kafka/bridge-state/v1", []byte(fmt.Sprintf("%s\x00%d\x00%s\x00%s", topic, p, key, value)))
+func signStateWith(s *identity.Signer, topic string, p int32, key string, value []byte, offsets ...int64) *kgo.Record {
+	var offset int64
+	if len(offsets) > 0 {
+		offset = offsets[0]
+	}
+	sig := s.Sign("http-over-kafka/bridge-state/v2", []byte(fmt.Sprintf("%s\x00%d\x00%d\x00%s\x00%t\x00%s", topic, p, offset, key, value == nil, value)))
 	return &kgo.Record{Topic: topic, Partition: p, Key: []byte(key), Value: value, Headers: []kgo.RecordHeader{
 		{Key: "hok-kid", Value: []byte(s.KeyID())}, {Key: "hok-sig", Value: []byte(base64.StdEncoding.EncodeToString(sig))}}}
 }

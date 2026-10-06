@@ -145,6 +145,10 @@ The gateway signs commands; the bridge signs responses, results and its own stat
 
 If the bridge's deduplication state was altered (partition count changed, topic recreated, unsafe retention or replication settings, unsigned records), the bridge refuses to serve and prints the reset procedure. Being unavailable can be fixed. A double debit cannot.
 
+State format v2 binds signatures to physical Kafka offsets and commits an inventory with every state change. Replaying an old signed deletion is rejected, even after compaction has removed the deleted entry and its tombstone. This assumes Kafka preserves its append-only log; restoring broker disks to an old snapshot is outside this guarantee.
+
+**Upgrade:** stop all bridges before moving from v1 to v2. Old state is deliberately refused. Follow the existing dedup reset procedure reported by the bridge, retaining command history and consumer groups; old commands become conservative unknown outcomes rather than executing again. Do not mix v1 and v2 writers. A crash that aborts the very first initialization can also require this reset: an empty committed log with prior physical writes cannot be distinguished from malicious deletion of all state. A normally initialized partition recovers aborted transactions without a reset.
+
 The design decisions, with the reason for each one, are recorded in [docs/SPEC.md](docs/SPEC.md).
 
 ## Topics

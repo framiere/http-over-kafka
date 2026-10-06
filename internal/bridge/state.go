@@ -35,6 +35,7 @@ const (
 	keyOffset  = "#offset"  // next command offset to process
 	keyFence   = "#fence"   // written by each new owner; see partition.restore
 	keyGenesis = "#genesis" // the layout genesis whose claims this partition holds
+	keySeal    = "#seal"    // authenticated inventory, survives entry compaction
 )
 
 type phase string
@@ -94,38 +95,45 @@ type fenceValue struct {
 // State records are signed by the bridge's own key: the state decides what
 // a retry is served and whether B may run, so a record anyone with write
 // access forged would launder a fake Response under the bridge's signature
-// (D10) or erase a "started" marker. The signature binds topic, partition
-// and key with the value, so a genuine record copied elsewhere does not
-// verify either. Tombstones are signed too (empty value).
-const signDomainState = "http-over-kafka/bridge-state/v1"
+// (D10) or erase a "started" marker. V2 also binds the physical Kafka offset:
+// reappending an old authentic tombstone must never erase a newly reused key.
+// Nil and empty values are distinct. A signed inventory covers deletions that
+// compaction makes invisible; the old v1 format cannot provide this guarantee.
+const signDomainState = "http-over-kafka/bridge-state/v2"
 
 const (
 	headerKeyID = "hok-kid"
 	headerSig   = "hok-sig"
 )
 
-func stateSigned(topic string, partition int32, key string, value []byte) []byte {
-	return []byte(fmt.Sprintf("%s\x00%d\x00%s\x00%s", topic, partition, key, value))
+func stateSigned(topic string, partition int32, key string, value []byte, position int64) []byte {
+	return []byte(fmt.Sprintf("%s\x00%d\x00%d\x00%s\x00%t\x00%s", topic, partition, position, key, value == nil, value))
 }
 
 func signedStateRecord(s *identity.Signer, topic string, partition int32, key string, value []byte) *kgo.Record {
-	sig := s.Sign(signDomainState, stateSigned(topic, partition, key, value))
-	return &kgo.Record{Topic: topic, Partition: partition, Key: []byte(key), Value: value, Headers: []kgo.RecordHeader{
-		{Key: headerKeyID, Value: []byte(s.KeyID())},
-		{Key: headerSig, Value: []byte(base64.StdEncoding.EncodeToString(sig))},
-	}}
+	r := &kgo.Record{Topic: topic, Partition: partition, Key: []byte(key), Value: value}
+	bindStateRecord(s, r, 0)
+	return r
 }
 
-// stateRecord encodes v (nil: tombstone) as a signed state record.
-func stateRecord(s *identity.Signer, topic string, partition int32, key string, v any) (*kgo.Record, error) {
+func bindStateRecord(s *identity.Signer, r *kgo.Record, offset int64) {
+	sig := s.Sign(signDomainState, stateSigned(r.Topic, r.Partition, string(r.Key), r.Value, offset))
+	r.Headers = []kgo.RecordHeader{
+		{Key: headerKeyID, Value: []byte(s.KeyID())},
+		{Key: headerSig, Value: []byte(base64.StdEncoding.EncodeToString(sig))},
+	}
+}
+
+// stateRecord encodes v (nil: tombstone); produceState signs its final position.
+func stateRecord(topic string, partition int32, key string, v any) (*kgo.Record, error) {
 	if v == nil {
-		return signedStateRecord(s, topic, partition, key, nil), nil
+		return &kgo.Record{Topic: topic, Partition: partition, Key: []byte(key)}, nil
 	}
 	b, err := json.Marshal(v)
 	if err != nil {
 		return nil, fmt.Errorf("state %s: %w", key, err)
 	}
-	return signedStateRecord(s, topic, partition, key, b), nil
+	return &kgo.Record{Topic: topic, Partition: partition, Key: []byte(key), Value: b}, nil
 }
 
 // errStateTampered: a record of the state topic was not written by a
@@ -136,7 +144,14 @@ var errStateTampered = errors.New("dedup state tampered")
 
 func verifyStateRecord(trust identity.TrustedKeys, rec *kgo.Record) error {
 	var kid, sig string
+	seen := map[string]bool{}
 	for _, h := range rec.Headers {
+		if h.Key == headerKeyID || h.Key == headerSig {
+			if seen[h.Key] {
+				return fmt.Errorf("%w: duplicate signature header at offset %d", errStateTampered, rec.Offset)
+			}
+			seen[h.Key] = true
+		}
 		switch h.Key {
 		case headerKeyID:
 			kid = string(h.Value)
@@ -148,7 +163,7 @@ func verifyStateRecord(trust identity.TrustedKeys, rec *kgo.Record) error {
 	if err != nil || len(raw) == 0 {
 		return fmt.Errorf("%w: unsigned record %q at offset %d", errStateTampered, rec.Key, rec.Offset)
 	}
-	if err := trust.Verify(kid, signDomainState, stateSigned(rec.Topic, rec.Partition, string(rec.Key), rec.Value), raw); err != nil {
+	if err := trust.Verify(kid, signDomainState, stateSigned(rec.Topic, rec.Partition, string(rec.Key), rec.Value, rec.Offset), raw); err != nil {
 		return fmt.Errorf("%w: record %q at offset %d: %v", errStateTampered, rec.Key, rec.Offset, err)
 	}
 	return nil
@@ -159,6 +174,24 @@ type store struct {
 	entries map[string]*entry
 	next    int64  // persisted next offset; records below it are already handled
 	genesis string // see keyGenesis
+	seal    *sealValue
+}
+
+// Offset-bound signatures reject copied records. The inventory also detects
+// deletions whose tombstones and victims have both disappeared in compaction.
+// Only compare the final seal with the final restored store: intermediate
+// inventories need not match a partially compacted log.
+type sealValue struct {
+	Entries int    `json:"entries"`
+	Next    int64  `json:"next"`
+	Genesis string `json:"genesis"`
+}
+
+func (s *store) verifySeal() error {
+	if s.seal == nil || *s.seal != (sealValue{len(s.entries), s.next, s.genesis}) {
+		return fmt.Errorf("%w: missing or inconsistent state inventory (legacy state requires explicit dedup reset)", errStateTampered)
+	}
+	return nil
 }
 
 func (s *store) apply(rec *kgo.Record) error {
@@ -166,6 +199,10 @@ func (s *store) apply(rec *kgo.Record) error {
 	switch {
 	case key == keyFence:
 		return nil
+	case key == keySeal:
+		if err := json.Unmarshal(rec.Value, &s.seal); err != nil {
+			return fmt.Errorf("%w: invalid inventory at %d", errStateTampered, rec.Offset)
+		}
 	case key == keyGenesis:
 		if err := json.Unmarshal(rec.Value, &s.genesis); err != nil {
 			return fmt.Errorf("state genesis at %d: %w", rec.Offset, err)
