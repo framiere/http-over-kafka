@@ -136,13 +136,29 @@ func freshTopicMetadata(ctx context.Context, cl *kgo.Client, names []string) (ka
 	if err != nil {
 		return nil, err
 	}
+	return decodeTopicMetadata(resp)
+}
+
+var errInvalidTopicMetadata = errors.New("invalid topic metadata")
+
+// Validate the wire response before maps can discard conflicting entries.
+func decodeTopicMetadata(resp *kmsg.MetadataResponse) (kadm.TopicDetails, error) {
 	details := make(kadm.TopicDetails, len(resp.Topics))
 	for _, topic := range resp.Topics {
-		if topic.Topic == nil {
-			continue
+		if topic.Topic == nil || *topic.Topic == "" {
+			return nil, fmt.Errorf("%w: missing topic name", errInvalidTopicMetadata)
+		}
+		if _, exists := details[*topic.Topic]; exists {
+			return nil, fmt.Errorf("%w: duplicate topic %s", errInvalidTopicMetadata, *topic.Topic)
 		}
 		detail := kadm.TopicDetail{Topic: *topic.Topic, Err: kerr.ErrorForCode(topic.ErrorCode), Partitions: kadm.PartitionDetails{}}
 		for _, p := range topic.Partitions {
+			if p.Partition < 0 || int64(p.Partition) >= int64(len(topic.Partitions)) {
+				return nil, fmt.Errorf("%w: topic %s partition %d outside [0,%d)", errInvalidTopicMetadata, detail.Topic, p.Partition, len(topic.Partitions))
+			}
+			if _, exists := detail.Partitions[p.Partition]; exists {
+				return nil, fmt.Errorf("%w: topic %s duplicate partition %d", errInvalidTopicMetadata, detail.Topic, p.Partition)
+			}
 			detail.Partitions[p.Partition] = kadm.PartitionDetail{Leader: p.Leader, Err: kerr.ErrorForCode(p.ErrorCode)}
 		}
 		details[detail.Topic] = detail
@@ -156,6 +172,9 @@ func waitForTopics(ctx context.Context, list func(context.Context, ...string) (k
 			return fmt.Errorf("waiting for topic metadata: %w", err)
 		}
 		details, err := list(ctx, names...)
+		if ctx.Err() != nil {
+			return fmt.Errorf("waiting for topic metadata: %w", ctx.Err())
+		}
 		if err == nil {
 			err = topicMetadataReady(details, names)
 		}
@@ -197,6 +216,9 @@ func topicMetadataReady(details kadm.TopicDetails, names []string) error {
 			pending = fmt.Errorf("topic %s has no partitions: %w", name, kerr.LeaderNotAvailable)
 		}
 		for id, partition := range topic.Partitions {
+			if id < 0 || int64(id) >= int64(len(topic.Partitions)) {
+				return fmt.Errorf("%w: topic %s partition %d outside [0,%d)", errInvalidTopicMetadata, name, id, len(topic.Partitions))
+			}
 			err := partition.Err
 			if err == nil && partition.Leader < 0 {
 				err = kerr.LeaderNotAvailable
