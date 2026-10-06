@@ -120,7 +120,10 @@ func newEnvWith(t *testing.T, prefix string, specData []byte, upstream string, c
 				return
 			}
 			fs.EachRecord(func(r *kgo.Record) {
-				resp, err := wire.DecodeResponse(r, e.bridgeKeys)
+				e.mu.Lock()
+				bridgeKeys := e.bridgeKeys
+				e.mu.Unlock()
+				resp, err := wire.DecodeResponse(r, bridgeKeys)
 				if err != nil {
 					t.Errorf("undecodable response: %v", err)
 					return

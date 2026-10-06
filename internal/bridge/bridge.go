@@ -48,6 +48,13 @@ type Config struct {
 	// never holds a gateway signing key: it cannot mint commands.
 	Keys   identity.TrustedKeys
 	Signer *identity.Signer
+	// StateKeys verify the bridge's persisted dedup state. Zero trusts only
+	// Signer, preserving single-key deployments. An explicit bridge-role
+	// keyring must include Signer. For rolling rotation, first deploy both
+	// old and new public keys to every bridge, then change signing keys.
+	// Keep old public keys while any state records signed by them remain:
+	// compaction can retain them beyond IdempotencyRetention.
+	StateKeys identity.TrustedKeys
 	// Credentials are B's own credentials for operations whose contract
 	// requires one (D12). Checked at startup against every mutation.
 	Credentials apispec.Credentials
@@ -190,6 +197,17 @@ func New(cfg Config) (*Bridge, error) {
 	}
 	if cfg.Signer == nil || cfg.Signer.Role() != identity.RoleBridge {
 		return nil, errors.New("bridge: a bridge-role signer is required (D10)")
+	}
+	if cfg.StateKeys.IsZero() {
+		cfg.StateKeys = cfg.Signer.Self()
+	}
+	if cfg.StateKeys.Role() != identity.RoleBridge {
+		return nil, errors.New("bridge: state keys must be trusted bridge keys")
+	}
+	// Validate the active key too: a misconfigured keyring must fail before
+	// the bridge writes state that it cannot restore on its next assignment.
+	if err := cfg.StateKeys.Verify(cfg.Signer.KeyID(), signDomainState, nil, cfg.Signer.Sign(signDomainState, nil)); err != nil {
+		return nil, fmt.Errorf("bridge: state keys must trust the active signing key: %w", err)
 	}
 	if len(cfg.Brokers) == 0 {
 		return nil, errors.New("bridge: no brokers")

@@ -7,6 +7,11 @@
 //	KAFKA_BROKERS             broker list
 //	HOK_TRUSTED_GATEWAY_KEYS   gateway public keys: verify commands
 //	HOK_BRIDGE_SIGNING_KEY     bridge private key: signs responses, results and its dedup state (D10)
+//	HOK_TRUSTED_BRIDGE_KEYS    optional bridge public keys: verify persisted state; defaults to
+//	                          the signing key's public key. Must include the active signing key.
+//	                          Deploy old + new trust everywhere before rotating signers. Retain
+//	                          old public keys while state signed by them remains in Kafka,
+//	                          including compacted metadata; idempotency expiry is not sufficient.
 //	HOK_SERVICE                service name, e.g. payments
 //	HOK_UPSTREAM               the service's base URL, e.g. http://payments:8082
 //	HOK_UPSTREAM_CREDENTIALS   service.scheme=value,...: the service's own credential when its
@@ -86,6 +91,11 @@ func config(logger *slog.Logger) (bridge.Config, error) {
 	errs = append(errs, err)
 	signer, err := identity.SignerFromEnv(identity.RoleBridge)
 	errs = append(errs, err)
+	var stateKeys identity.TrustedKeys
+	if os.Getenv(identity.TrustedKeysEnv(identity.RoleBridge)) != "" {
+		stateKeys, err = identity.TrustedKeysFromEnv(identity.RoleBridge)
+		errs = append(errs, err)
+	}
 	instance := os.Getenv("HOK_BRIDGE_INSTANCE")
 	if instance == "" {
 		instance, _ = os.Hostname()
@@ -113,6 +123,7 @@ func config(logger *slog.Logger) (bridge.Config, error) {
 		Spec:                 spec,
 		Keys:                 keys,
 		Signer:               signer,
+		StateKeys:            stateKeys,
 		Credentials:          creds,
 		Upstream:             need("HOK_UPSTREAM"),
 		Instance:             instance,

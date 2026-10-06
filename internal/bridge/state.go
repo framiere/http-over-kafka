@@ -128,8 +128,8 @@ func stateRecord(s *identity.Signer, topic string, partition int32, key string, 
 	return signedStateRecord(s, topic, partition, key, b), nil
 }
 
-// errStateTampered: a record of the state topic was not written by this
-// bridge's key. Nothing about the partition can be trusted any more: a
+// errStateTampered: a record of the state topic was not written by a
+// trusted bridge key. Nothing about the partition can be trusted any more: a
 // forged record may have replaced (and, after compaction, erased) a genuine
 // entry, so ignoring it would not restore what it hid.
 var errStateTampered = errors.New("dedup state tampered")
