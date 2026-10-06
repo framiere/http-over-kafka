@@ -221,7 +221,7 @@ func New(cfg Config) (*Bridge, error) {
 	}
 	up, err := newUpstream(cfg.Upstream, cfg.UpstreamTimeout)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("bridge service %q: %w", cfg.Service, err)
 	}
 	if err := cfg.Credentials.Check(cfg.Spec, (*apispec.Operation).Transported); err != nil {
 		return nil, err
@@ -310,7 +310,9 @@ func (b *Bridge) Run(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	b.log.Info("bridge consuming", "topic", b.cmdTopic, "partitions", b.partitions, "upstream", b.cfg.Upstream)
+	// Log only the endpoint. Userinfo and path segments can carry credentials.
+	b.log.Info("bridge consuming", "topic", b.cmdTopic, "partitions", b.partitions,
+		"upstream", b.up.base.Scheme+"://"+b.up.base.Host)
 
 	for {
 		fs := consumer.PollFetches(ctx)

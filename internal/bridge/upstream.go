@@ -3,6 +3,7 @@ package bridge
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -40,10 +41,11 @@ type upstream struct {
 func newUpstream(base string, timeout time.Duration) (*upstream, error) {
 	u, err := url.Parse(base)
 	if err != nil {
-		return nil, fmt.Errorf("upstream url: %w", err)
+		// url.Parse errors include the original URL, including userinfo.
+		return nil, errors.New("upstream URL is invalid")
 	}
 	if (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" || u.RawQuery != "" || u.Fragment != "" {
-		return nil, fmt.Errorf("upstream url %q: want http(s)://host[:port][/prefix]", base)
+		return nil, errors.New("upstream URL must be http(s)://host[:port][/prefix], without query or fragment")
 	}
 	tr := http.DefaultTransport.(*http.Transport).Clone()
 	// The caller's Accept-Encoding travels in the command; adding our own
