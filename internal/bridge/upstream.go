@@ -78,6 +78,7 @@ func (emptyBody) Close() error             { return nil }
 func (u *upstream) request(ctx context.Context, cmd wire.Command, op *apispec.Operation) (*http.Request, error) {
 	h := cmd.Headers.HTTP()
 	rawQuery := cmd.RawQuery
+	hasCredentials := false
 	if u.spec != nil {
 		// The gateway already removed A's secrets; dropping the contract's
 		// credential headers again costs nothing and leaves only ours.
@@ -91,6 +92,7 @@ func (u *upstream) request(ctx context.Context, cmd wire.Command, op *apispec.Op
 				return nil, fmt.Errorf("no configured credential satisfies %v", op.Security)
 			}
 			rawQuery = u.creds.Inject(u.spec, alt, h, rawQuery)
+			hasCredentials = len(alt) > 0
 		}
 	}
 	target := *u.base
@@ -130,6 +132,11 @@ func (u *upstream) request(ctx context.Context, cmd wire.Command, op *apispec.Op
 		h["User-Agent"] = nil // Go would otherwise add its own
 	}
 	req.Header = h
+	// Go's HTTP/1 transport logs unsolicited bytes on idle connections to
+	// log.Default. A malformed response can reflect a credential there,
+	// outside our error sanitizer. Never return a credential-bearing
+	// connection to the pool; anonymous requests retain normal pooling.
+	req.Close = hasCredentials || req.URL.User != nil || h.Get("Authorization") != "" || h.Get("Proxy-Authorization") != "" || h.Get("Cookie") != ""
 	return req, nil
 }
 

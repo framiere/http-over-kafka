@@ -137,6 +137,8 @@ Errors from the transport itself are `application/problem+json` and always carry
 
 `Authorization`, `Cookie`, `X-Api-Key`, `Proxy-Authorization` and any credential declared in the service's OpenAPI `securitySchemes` are removed. The service receives `X-Caller-Application`, `X-Caller-Instance` and `X-Request-Id`, which it can ignore, plus its own provider credential if its contract requires one (`HOK_UPSTREAM_CREDENTIALS`).
 
+Upstream failures use fixed diagnostics. Connections carrying provider credentials are closed after the response: Go's idle HTTP/1 connection logger can otherwise expose credentials reflected in malformed response bytes. Anonymous calls retain connection pooling. Authenticated calls incur more TCP/TLS handshakes and lose connection reuse, including on HTTP/2.
+
 ### Every record is signed by its producer
 
 The gateway signs commands; the bridge signs responses, results and its own state. A forged response never reaches a caller, and a forged result never becomes an event.
