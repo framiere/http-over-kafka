@@ -23,7 +23,7 @@ func TestExpiredCommandRecoveryPreservesExecutionEvidence(t *testing.T) {
 	for _, tc := range []struct {
 		name       string
 		replayable bool
-		marker     string // own or foreign started marker; empty: no marker
+		marker     string // own or foreign started marker, done, or empty
 		prior      wire.Outcome
 		called     bool
 		known      bool
@@ -35,6 +35,9 @@ func TestExpiredCommandRecoveryPreservesExecutionEvidence(t *testing.T) {
 		{name: "foreign replayable marker", replayable: true, marker: "foreign", want: wire.FaultOutcomeUnknown},
 		{name: "foreign replayable marker expires before call", replayable: true, marker: "foreign", advance: true, want: wire.FaultOutcomeUnknown},
 		{name: "known result with own marker", marker: "own", called: true, known: true},
+		{name: "known result with foreign marker", marker: "foreign", called: true, known: true},
+		{name: "known replayable result with foreign marker", marker: "foreign", replayable: true, called: true, known: true},
+		{name: "durable done supersedes known local response", marker: "done", replayable: true, called: true, known: true},
 		{name: "known replayable result without marker", replayable: true, called: true, known: true},
 		{name: "known replayable result over not executed entry", replayable: true, prior: wire.OutcomeNotExecuted, called: true, known: true},
 		{name: "known replayable result over unknown entry", replayable: true, prior: wire.OutcomeUnknown, called: true, known: true},
@@ -109,6 +112,10 @@ func TestExpiredCommandRecoveryPreservesExecutionEvidence(t *testing.T) {
 				}
 				w.st.entries[cmd.DedupKey()] = &entry{RequestID: cmd.RequestID,
 					Fingerprint: cmd.Fingerprint(), Phase: started, Attempt: id}
+				if tc.marker == "done" {
+					w.st.entries[cmd.DedupKey()].Phase = done
+					w.st.entries[cmd.DedupKey()].Outcome = wire.OutcomeUnknown
+				}
 			}
 			if tc.prior != "" {
 				w.st.entries[cmd.DedupKey()] = &entry{RequestID: wire.NewRequestID(),
@@ -157,6 +164,12 @@ func TestExpiredCommandRecoveryPreservesExecutionEvidence(t *testing.T) {
 			}
 			if calls.Load() != 0 {
 				t.Fatalf("expired command reached upstream %d times", calls.Load())
+			}
+			if tc.marker == "done" {
+				if response != nil || result != nil || final != nil || w.st.entries[cmd.DedupKey()].Outcome != wire.OutcomeUnknown {
+					t.Fatal("already completed command must not publish or overwrite its durable outcome")
+				}
+				return
 			}
 			if response == nil || result == nil || final == nil {
 				t.Fatalf("missing durable output: response=%+v result=%+v entry=%+v", response, result, final)

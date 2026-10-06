@@ -1,6 +1,7 @@
 package bridge_test
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -120,8 +121,16 @@ func TestReplayableCommandExpirationBeforeRetry(t *testing.T) {
 // after the command expires. A known answer remains authoritative even for a
 // replayable operation, which has no durable started marker.
 func TestCommandExpirationDuringOutcomeCommitRecovery(t *testing.T) {
-	for _, replayable := range []bool{false, true} {
-		t.Run(fmt.Sprintf("replayable=%t", replayable), func(t *testing.T) {
+	for _, tc := range []struct {
+		name          string
+		replayable    bool
+		foreignMarker bool
+	}{
+		{name: "non replayable"},
+		{name: "replayable", replayable: true},
+		{name: "replayable with foreign marker", replayable: true, foreignMarker: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
 			var calls atomic.Int32
 			var cmd wire.Command
 			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -133,12 +142,12 @@ func TestCommandExpirationDuringOutcomeCommitRecovery(t *testing.T) {
 			}))
 			defer srv.Close()
 			spec := api.Payments
-			if replayable {
+			if tc.replayable && !tc.foreignMarker {
 				spec = api.Orders
 			}
 			e := newEnv(t, "expiry-commit", spec, srv.URL)
 			cmd = e.charge("expiry", "")
-			if replayable {
+			if tc.replayable && !tc.foreignMarker {
 				cmd = e.command(http.MethodPut, "replaceOrder", "/orders/{orderId}", "/orders/o1",
 					map[string]string{"orderId": "o1"}, `{"customerId":"c1","items":[]}`, "")
 			}
@@ -147,6 +156,13 @@ func TestCommandExpirationDuringOutcomeCommitRecovery(t *testing.T) {
 			var now atomic.Int64
 			now.Store(cmd.IssuedAt.UnixNano())
 			cfg := e.config()
+			if tc.foreignMarker {
+				op, ok := cfg.Spec.Operation(cmd.OperationID)
+				if !ok {
+					t.Fatal("missing operation")
+				}
+				op.RetrySafe = true // current contract; the old owner persisted started
+			}
 			cfg.Now = func() time.Time { return time.Unix(0, now.Load()) }
 			var once sync.Once
 			cfg.Hooks.BeforeCommit = func(id string) {
@@ -164,6 +180,24 @@ func TestCommandExpirationDuringOutcomeCommitRecovery(t *testing.T) {
 					if err := cl.ProduceSync(t.Context(), rec).FirstErr(); err != nil {
 						t.Error(err)
 						return
+					}
+					if tc.foreignMarker {
+						// A previous owner may have used a contract where this
+						// operation was non-replayable and persisted a marker.
+						value, err := json.Marshal(map[string]any{
+							"requestId": cmd.RequestID, "fingerprint": cmd.Fingerprint(),
+							"phase": "started", "attempt": "foreign",
+							"purgeAfter": cmd.ExpiresAt.Add(time.Hour),
+						})
+						if err != nil {
+							t.Error(err)
+							return
+						}
+						marker := signedState(e, int32(p), cmd.DedupKey(), value)
+						if err := cl.ProduceSync(t.Context(), marker).FirstErr(); err != nil {
+							t.Error(err)
+							return
+						}
 					}
 					if err := cl.EndTransaction(t.Context(), kgo.TryCommit); err != nil {
 						t.Error(err)
