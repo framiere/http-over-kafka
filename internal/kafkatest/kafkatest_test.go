@@ -154,3 +154,21 @@ func TestEnsureTopicsIsIdempotent(t *testing.T) {
 		t.Fatal("invalid topic config accepted")
 	}
 }
+
+// Readiness checks the actual layout; it must not turn provisioning into
+// partition reconciliation for topics that already exist.
+func TestEnsureTopicsPreservesExistingLayout(t *testing.T) {
+	topic := kafkaenv.CommandTopic(kafkatest.Service(t, "existing"), 1)
+	kafkatest.CreateTopics(t, topic)
+	topic.Partitions = 3
+	kafkatest.CreateTopics(t, topic)
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+	details, err := kafkatest.Admin(t).ListTopics(ctx, topic.Name)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if actual, ok := details[topic.Name]; !ok || actual.Err != nil || len(actual.Partitions) != 1 {
+		t.Fatalf("existing layout changed or is not ready: %+v", actual)
+	}
+}
