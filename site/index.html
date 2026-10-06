@@ -27,11 +27,11 @@
       <span>http-over-kafka</span>
     </a>
     <div class="nav-links">
+      <a href="#start">Get started</a>
       <a href="#why">Why</a>
       <a href="#see">See it</a>
       <a href="#journey">Adopt</a>
       <a href="#guarantees">Guarantees</a>
-      <a href="#start">Start</a>
       <a href="#about">About</a>
     </div>
     <a class="gh-pill" href="https://github.com/sderosiaux/http-over-kafka">
@@ -79,6 +79,69 @@
       <span>ShipmentDispatched <em>shp_5C1</em></span>
       <span>SubscriptionRenewed <em>sub_77Q</em></span>
       <span>InventoryReserved <em>sku_A123</em></span>
+    </div>
+  </section>
+
+  <section class="band band-start" id="start">
+    <div class="wrap">
+      <div class="section-head reveal">
+        <h2>See your first event in Kafka in three steps.</h2>
+        <p>Docker is all you need. The quickstart runs Kafka, two demo services, http-over-kafka, a live playground and Conduktor Console.</p>
+      </div>
+      <ol class="qs">
+        <li class="qs-row reveal">
+          <div class="qs-text">
+            <span class="j-num">1</span>
+            <h3>Start everything</h3>
+            <p>One file, pulled from this site.</p>
+          </div>
+          <div class="term-block">
+            <div class="term-cmd"><div class="term-bar"><span class="term-dots" aria-hidden="true"><i></i><i></i><i></i></span><button class="copy" type="button">Copy</button></div><pre><code>curl -fsSL https://sderosiaux.github.io/http-over-kafka/quickstart.yml \
+  | docker compose -f - up -d --wait</code></pre></div>
+            <pre class="term-out"><span class="ok">✔</span> 10 containers running</pre>
+          </div>
+        </li>
+        <li class="qs-row reveal">
+          <div class="qs-text">
+            <span class="j-num">2</span>
+            <h3>Call it like any app would</h3>
+            <p>A plain HTTP request. The service answers as usual.</p>
+          </div>
+          <div class="term-block">
+            <div class="term-cmd"><div class="term-bar"><span class="term-dots" aria-hidden="true"><i></i><i></i><i></i></span><button class="copy" type="button">Copy</button></div><pre><code>curl -i localhost:8080/orders -H 'Host: orders' \
+  -H "Authorization: Bearer $(curl -s localhost:8090/token)" \
+  --json '{"customerId":"c-1","items":[{"sku":"A1","quantity":2}]}'</code></pre></div>
+            <pre class="term-out"><span class="ok">HTTP/1.1 201 Created</span>
+Location: /orders/ord_01M47PY0YP2DD5XYX2Y80Q58QP</pre>
+          </div>
+        </li>
+        <li class="qs-row reveal">
+          <div class="qs-text">
+            <span class="j-num">3</span>
+            <h3>Watch it land in Kafka</h3>
+            <p>The command, the result and the <code>OrderCreated</code> event are already there.</p>
+          </div>
+          <div class="qs-links">
+            <a class="qs-link qs-link-play" href="http://localhost:8090">
+              <strong>localhost:8090</strong>
+              <span class="qs-link-title">Live playground</span>
+              <span>Each request and what Kafka recorded for it, live.</span>
+            </a>
+            <a class="qs-link qs-link-cdk" href="http://localhost:8088">
+              <strong>localhost:8088</strong>
+              <span class="qs-link-title">Conduktor Console</span>
+              <span>Browse the topics. Log in with <code>admin@example.com</code> / <code>Admin_1234!</code></span>
+            </a>
+          </div>
+        </li>
+      </ol>
+      <figure class="bezel console-shot reveal">
+        <div class="bezel-core">
+          <img src="console-orders-events.png" width="1440" height="900" loading="lazy" alt="Conduktor Console showing the orders.events topic: OrderCreated records keyed by order ID, with the customer and items from the original HTTP request.">
+        </div>
+        <figcaption><code>orders.events</code> in Conduktor Console, filled by plain HTTP calls. No service was changed to produce these records.</figcaption>
+      </figure>
+      <p class="qs-more reveal">Next: <a href="https://github.com/sderosiaux/http-over-kafka#putting-a-service-behind-the-gateway">put one of your own services behind the gateway</a>. Clean up with <code>docker compose -p http-over-kafka-quickstart down -v</code>.</p>
     </div>
   </section>
 
@@ -248,47 +311,6 @@
         <div class="stat stat-sky reveal"><span class="stat-n">+15<small>ms</small></span><span class="stat-l">worst added P99, eight concurrent requests</span></div>
       </div>
       <p class="fine reveal">Measured on one laptop, single broker, replication factor 1. Multi-broker numbers are next on the roadmap. Writing the test suite uncovered five ways to charge twice; each is fixed and covered by a regression test.</p>
-    </div>
-  </section>
-
-  <section class="band band-white" id="start">
-    <div class="wrap">
-      <div class="section-head reveal">
-        <h2>See your first event in Kafka in three steps.</h2>
-        <p>All you need is Docker. The quickstart runs Kafka, two demo services, http-over-kafka, a live playground and Conduktor Console to browse the topics.</p>
-      </div>
-      <ol class="qs">
-        <li class="qs-step reveal">
-          <span class="j-num">1</span>
-          <h3>Start everything</h3>
-          <div class="code"><button class="copy" type="button">Copy</button><pre><code>curl -fsSL https://sderosiaux.github.io/http-over-kafka/quickstart.yml \
-  | docker compose -f - up -d --wait</code></pre></div>
-          <div class="qs-out"><span class="qs-label">You get</span><span>Kafka, the gateway, the bridges and the demo services, all healthy.</span></div>
-        </li>
-        <li class="qs-step reveal">
-          <span class="j-num">2</span>
-          <h3>Call it like any app would</h3>
-          <div class="code"><button class="copy" type="button">Copy</button><pre><code>curl -i localhost:8080/orders -H 'Host: orders' \
-  -H "Authorization: Bearer $(curl -s localhost:8090/token)" \
-  --json '{"customerId":"c-1","items":[{"sku":"A1","quantity":2}]}'</code></pre></div>
-          <div class="qs-out"><span class="qs-label">You get</span><span><code>HTTP/1.1 201 Created</code>, the demo service's own answer.</span></div>
-        </li>
-        <li class="qs-step reveal">
-          <span class="j-num">3</span>
-          <h3>Watch it land in Kafka</h3>
-          <div class="qs-links">
-            <a class="qs-link qs-link-play" href="http://localhost:8090"><strong>localhost:8090</strong><span>Live playground: send requests, see the command, the result and <code>OrderCreated</code> appear.</span></a>
-            <a class="qs-link qs-link-cdk" href="http://localhost:8088"><strong>localhost:8088</strong><span>Conduktor Console: browse <code>http.requests.orders</code>, <code>http.results.orders</code> and <code>orders.events</code>. Log in with <code>admin@example.com</code> / <code>Admin_1234!</code></span></a>
-          </div>
-        </li>
-      </ol>
-      <figure class="bezel console-shot reveal">
-        <div class="bezel-core">
-          <img src="console-orders-events.png" width="1440" height="900" loading="lazy" alt="Conduktor Console showing the orders.events topic: OrderCreated records keyed by order ID, with the customer and items from the original HTTP request.">
-        </div>
-        <figcaption><code>orders.events</code> in Conduktor Console, filled by plain HTTP calls. No service was changed to produce these records.</figcaption>
-      </figure>
-      <p class="qs-more reveal">Ready to try it on your own services? <a href="https://github.com/sderosiaux/http-over-kafka#putting-a-service-behind-the-gateway">Put a service behind the gateway</a>. Done for now? <code>docker compose -p http-over-kafka-quickstart down -v</code></p>
     </div>
   </section>
 
