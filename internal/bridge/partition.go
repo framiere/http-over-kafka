@@ -6,6 +6,8 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"iter"
+	"maps"
 	"strings"
 	"sync"
 	"time"
@@ -68,7 +70,8 @@ type partition struct {
 
 	// committer goroutine only
 	prod      *kgo.Client
-	lastPurge time.Time
+	purgeNext func() (string, bool)
+	purgeStop func()
 }
 
 func newPartition(b *Bridge, cons *kgo.Client, id int32) *partition {
@@ -288,17 +291,27 @@ func (w *partition) submit(r *commitReq) error {
 func (w *partition) commitLoop(ctx context.Context) {
 	defer close(w.cgone)
 	defer w.closeProducer()
+	defer w.stopPurge()
 	if !w.reopen(ctx) {
 		return
 	}
+	// Sweep restored state immediately. Between sweeps, wait the configured
+	// interval; between bounded chunks, yield to commands without waiting.
+	purgeTimer := time.NewTimer(0)
+	defer purgeTimer.Stop()
 	for {
 		var batch []*commitReq
 		select {
 		case r := <-w.reqs:
 			batch = append(batch, r)
+		case <-purgeTimer.C:
+			if w.purgeNext == nil {
+				w.startPurge()
+			}
 		case <-ctx.Done():
 			return
 		}
+		purging := w.purgeNext != nil
 	drain:
 		for len(batch) < 256 {
 			select {
@@ -319,7 +332,7 @@ func (w *partition) commitLoop(ctx context.Context) {
 			}
 			valid = append(valid, r)
 		}
-		if len(valid) == 0 {
+		if len(valid) == 0 && !purging {
 			continue
 		}
 		if err := w.commitBatch(valid); err != nil {
@@ -330,7 +343,15 @@ func (w *partition) commitLoop(ctx context.Context) {
 			if !w.reopen(ctx) {
 				return
 			}
+			purgeTimer.Reset(0) // retry against restored, committed state
 			continue
+		}
+		if purging {
+			if w.purgeNext != nil {
+				purgeTimer.Reset(0)
+			} else {
+				purgeTimer.Reset(w.b.cfg.PurgeInterval)
+			}
 		}
 		for _, r := range valid {
 			r.err <- nil
@@ -346,6 +367,7 @@ func (w *partition) reopen(ctx context.Context) bool {
 		w.closeProducer()
 		st, err := w.open()
 		if err == nil {
+			w.stopPurge() // an iterator must never outlive its store generation
 			w.mu.Lock()
 			w.st = st
 			w.gen++
@@ -611,6 +633,9 @@ func (w *partition) commitBatch(reqs []*commitReq) error {
 		recs = append(recs, sr)
 	}
 
+	if len(recs) == 0 {
+		return nil // a scan-only chunk needs no Kafka transaction
+	}
 	if err := w.prod.BeginTransaction(); err != nil {
 		return err
 	}
@@ -662,27 +687,49 @@ func (w *partition) watermark(settling map[int64]bool) int64 {
 	return max(next, w.st.next)
 }
 
-// expired returns finished entries past their retention, at most once per
-// purge interval and in bounded batches. An entry is only purgeable once its
-// command can no longer pass verification, so a redelivery after the purge is
-// answered "stale", never executed. Caller holds mu.
+// Bound examined keys as well as tombstones: a large store of live entries
+// must not monopolize mu or the committer. A sweep continues in successive
+// chunks, including when no commands arrive.
+const purgeBatchSize = 512
+
+func (w *partition) startPurge() {
+	// Only the committer writes entries. The suspended map iterator tolerates
+	// insertions/deletions between chunks; newly inserted or skipped keys are
+	// reconsidered by the next sweep. Every next call holds mu.
+	w.purgeNext, w.purgeStop = iter.Pull(maps.Keys(w.st.entries))
+}
+
+func (w *partition) stopPurge() {
+	if w.purgeStop != nil {
+		w.purgeStop()
+	}
+	w.purgeNext, w.purgeStop = nil, nil
+}
+
+// expired selects a bounded chunk without changing the store. Entries are
+// deleted only after their signed tombstones commit; a failed transaction
+// reopens the store and restarts the sweep from committed truth. An entry is
+// purgeable only after its command can no longer pass verification, so a
+// redelivery is answered "stale", never executed. Caller holds mu.
 func (w *partition) expired(writing map[string]*entry) []string {
-	now := w.b.now()
-	if now.Sub(w.lastPurge) < w.b.cfg.PurgeInterval {
+	if w.purgeNext == nil {
 		return nil
 	}
-	w.lastPurge = now
+	now := w.b.now()
 	var keys []string
-	for k, e := range w.st.entries {
+	for range purgeBatchSize {
+		k, ok := w.purgeNext()
+		if !ok {
+			w.stopPurge()
+			break
+		}
+		e := w.st.entries[k]
 		_, rewritten := writing[k]
 		_, busy := w.lanes[k]
 		if rewritten || busy || e.Phase != done || !now.After(e.PurgeAfter) || strings.HasPrefix(k, "#") {
 			continue
 		}
 		keys = append(keys, k)
-		if len(keys) == 512 {
-			break
-		}
 	}
 	return keys
 }

@@ -71,7 +71,9 @@ type Config struct {
 	MaxTTL               time.Duration
 	TxnTimeout           time.Duration
 	RestoreTimeout       time.Duration
-	PurgeInterval        time.Duration
+	// PurgeInterval is the delay between complete dedup sweeps. A sweep
+	// drains in bounded chunks, even when no commands arrive.
+	PurgeInterval time.Duration
 	// SessionTimeout is how long a dead bridge's partitions stay frozen
 	// before the group hands them over (franz-go default: 45s). Shorter
 	// means a long pause (GC, network) also triggers a takeover; that is
@@ -206,6 +208,9 @@ func New(cfg Config) (*Bridge, error) {
 	def(&cfg.TxnTimeout, 10*time.Second)
 	def(&cfg.RestoreTimeout, 2*time.Minute)
 	def(&cfg.PurgeInterval, time.Minute)
+	if cfg.PurgeInterval < 0 {
+		return nil, errors.New("bridge: purge interval must be positive")
+	}
 	def(&cfg.SessionTimeout, 10*time.Second)
 	if cfg.MaxInFlight <= 0 {
 		cfg.MaxInFlight = 64
