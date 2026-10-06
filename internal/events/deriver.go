@@ -210,7 +210,7 @@ func (d *Deriver) Run(ctx context.Context) error {
 	return d.consume(ctx, sess.PollFetches, func(fs kgo.Fetches) error { return d.batch(ctx, sess, fs) })
 }
 
-// consume keeps polling through retriable Kafka errors. In particular, franz-go
+// consume keeps polling through recoverable Kafka errors. In particular, franz-go
 // reports ErrGroupSession while its group manager backs off and rejoins after
 // a coordinator change. Returning here would stop that recovery. Session loss
 // still aborts transactions through GroupTransactSession's callbacks and End;
@@ -223,7 +223,7 @@ func (d *Deriver) consume(ctx context.Context, poll func(context.Context) kgo.Fe
 		}
 		var ferr error
 		fs.EachError(func(t string, p int32, err error) {
-			if kerr.IsRetriable(err) {
+			if recoverableFetchError(err) {
 				d.log.Warn("transient fetch error; consumer will retry", "topic", t, "partition", p, "err", err)
 				return
 			}
@@ -239,6 +239,27 @@ func (d *Deriver) consume(ctx context.Context, poll func(context.Context) kgo.Fe
 			return err
 		}
 	}
+}
+
+func recoverableFetchError(err error) bool {
+	// franz-go v1.22.1's classic group manager reports these heartbeat
+	// failures through ErrGroupSession, calls OnPartitionsLost, and rejoins
+	// after its own backoff. Kafka marks them non-retriable because the old
+	// membership cannot be reused, not because a new session cannot start.
+	// Restrict this exception to poll's group notification: transaction
+	// failures and unknown, authorization, or fencing errors remain fatal.
+	groupSession := false
+	for ; err != nil; err = errors.Unwrap(err) {
+		switch e := err.(type) {
+		case *kgo.ErrGroupSession:
+			groupSession = true
+		case *kerr.Error:
+			return e.Retriable || groupSession && (e == kerr.UnknownMemberID || e == kerr.IllegalGeneration)
+		}
+	}
+	// Poll reports individual errors. A joined or unknown error is not
+	// evidence of recoverability; one retryable cause must not hide another.
+	return false
 }
 
 func (d *Deriver) batch(parent context.Context, sess *kgo.GroupTransactSession, fs kgo.Fetches) error {

@@ -20,6 +20,8 @@ func TestConsumerResumesAfterTransientGroupError(t *testing.T) {
 	for _, transient := range []error{
 		&kgo.ErrGroupSession{Err: kerr.NotCoordinator},
 		fmt.Errorf("session wrapper: %w", &kgo.ErrGroupSession{Err: kerr.CoordinatorLoadInProgress}),
+		&kgo.ErrGroupSession{Err: kerr.UnknownMemberID},
+		fmt.Errorf("session wrapper: %w", &kgo.ErrGroupSession{Err: fmt.Errorf("heartbeat: %w", kerr.IllegalGeneration)}),
 		kerr.UnknownTopicOrPartition,
 	} {
 		t.Run(transient.Error(), func(t *testing.T) {
@@ -54,7 +56,20 @@ func TestConsumerResumesAfterTransientGroupError(t *testing.T) {
 }
 
 func TestConsumerPreservesFatalFetchAndBatchFailures(t *testing.T) {
-	for _, permanent := range []error{kerr.TopicAuthorizationFailed, kgo.ErrClientClosed, errors.New("unclassified failure")} {
+	for _, permanent := range []error{
+		kerr.TopicAuthorizationFailed, kgo.ErrClientClosed, errors.New("unclassified failure"),
+		kerr.UnknownMemberID, kerr.IllegalGeneration, // only group-session notifications recover
+		&kgo.ErrGroupSession{Err: kerr.GroupAuthorizationFailed},
+		&kgo.ErrGroupSession{Err: kerr.SaslAuthenticationFailed},
+		&kgo.ErrGroupSession{Err: kerr.FencedInstanceID},
+		&kgo.ErrGroupSession{Err: kerr.ProducerFenced},
+		&kgo.ErrGroupSession{Err: kgo.ErrClientClosed},
+		&kgo.ErrGroupSession{Err: context.Canceled}, // the Run context is still live
+		&kgo.ErrGroupSession{Err: errors.New("unknown group error")},
+		errors.Join(kerr.NotCoordinator, kerr.TopicAuthorizationFailed),
+		&kgo.ErrGroupSession{Err: errors.Join(kerr.UnknownMemberID, kerr.GroupAuthorizationFailed)},
+		errors.Join(&kgo.ErrGroupSession{Err: kerr.UnknownMemberID}, kerr.ProducerFenced),
+	} {
 		t.Run(permanent.Error(), func(t *testing.T) {
 			d := &Deriver{log: slog.New(slog.NewTextHandler(io.Discard, nil))}
 			fs := append(erroredFetch(kerr.NotCoordinator), erroredFetch(permanent)...)
@@ -74,16 +89,17 @@ func TestConsumerPreservesFatalFetchAndBatchFailures(t *testing.T) {
 			}
 		})
 	}
-	t.Run("transaction failure", func(t *testing.T) {
-		d := &Deriver{}
-		want := errors.New("transaction fenced")
-		err := d.consume(t.Context(), func(context.Context) kgo.Fetches {
-			return kgo.Fetches{{Topics: []kgo.FetchTopic{{Partitions: []kgo.FetchPartition{{Records: []*kgo.Record{{}}}}}}}}
-		}, func(kgo.Fetches) error { return want })
-		if !errors.Is(err, want) {
-			t.Fatalf("transaction failure lost: %v", err)
-		}
-	})
+	for _, want := range []error{kerr.NotCoordinator, kerr.UnknownMemberID, kerr.IllegalGeneration, kerr.ProducerFenced} {
+		t.Run("transaction failure/"+want.Error(), func(t *testing.T) {
+			d := &Deriver{}
+			err := d.consume(t.Context(), func(context.Context) kgo.Fetches {
+				return kgo.Fetches{{Topics: []kgo.FetchTopic{{Partitions: []kgo.FetchPartition{{Records: []*kgo.Record{{}}}}}}}}
+			}, func(kgo.Fetches) error { return want })
+			if !errors.Is(err, want) {
+				t.Fatalf("transaction failure lost: %v", err)
+			}
+		})
+	}
 }
 
 func TestConsumerCancellationStopsRecovery(t *testing.T) {
