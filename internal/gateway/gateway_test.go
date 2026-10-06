@@ -314,27 +314,76 @@ func TestRequestIDIsMintedByGateway(t *testing.T) {
 func TestTimeoutAndLateResponse(t *testing.T) {
 	name := kafkatest.Service(t, "echo")
 	b, rec := echoB(t)
-	g := startGateway(t, gwOpts{timeout: 300 * time.Millisecond}, loadService(t, name, []byte(echoSpec), b.URL))
+	// Leave room for the first producer initialization under -race and
+	// concurrent container startup. This test holds execution explicitly;
+	// it does not require cold Kafka publication to finish within 300ms.
+	g := startGateway(t, gwOpts{timeout: 3 * time.Second}, loadService(t, name, []byte(echoSpec), b.URL))
 	g.waitReady(t)
 	release := make(chan struct{})
-	var seen sync.WaitGroup
-	seen.Add(1)
+	var released sync.Once
+	unblock := func() { released.Do(func() { close(release) }) }
+	defer unblock() // also release the peer before its cleanup on any failure
+	seen := make(chan wire.Command, 1)
 	p := startPeer(t, name, b.URL, func(cmd wire.Command) (wire.Response, bool) {
-		seen.Done()
+		seen <- cmd
 		<-release
 		return wire.Response{}, false // then call B normally
 	})
 
-	resp, body := call(t, g, name, "POST", "/echo/1", "text/plain", []byte("late"), wire.IdempotencyKeyHeader, "k-1")
-	pb := problemOf(t, resp, body, 504, wire.ProblemTypeTimeout)
+	ctx, cancel := context.WithTimeout(t.Context(), 15*time.Second)
+	defer cancel()
+	req, err := http.NewRequestWithContext(ctx, "POST", g.srv.URL+"/echo/1", strings.NewReader("late"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Host = name
+	req.Header.Set("Authorization", "Bearer "+token(t))
+	req.Header.Set("Content-Type", "text/plain")
+	req.Header.Set(wire.IdempotencyKeyHeader, "k-1")
+	type answer struct {
+		response *http.Response
+		body     []byte
+		err      error
+	}
+	answered := make(chan answer, 1)
+	go func() {
+		resp, err := g.srv.Client().Do(req)
+		var body []byte
+		if err == nil {
+			body, err = io.ReadAll(resp.Body)
+			resp.Body.Close()
+		}
+		answered <- answer{resp, body, err}
+	}()
+	var cmd wire.Command
+	select {
+	case cmd = <-seen:
+	case <-ctx.Done():
+		t.Fatal("command was not observed on Kafka; a 504 alone does not prove publication")
+	}
+	var got answer
+	select {
+	case got = <-answered:
+	case <-ctx.Done():
+		t.Fatal("gateway did not return at its deadline")
+	}
+	if got.err != nil {
+		t.Fatal(got.err)
+	}
+	pb := problemOf(t, got.response, got.body, 504, wire.ProblemTypeTimeout)
+	if cmd.RequestID != pb.RequestID {
+		t.Fatalf("504 requestId %q does not identify the observed command %q", pb.RequestID, cmd.RequestID)
+	}
 	if !strings.Contains(pb.Detail, "Idempotency-Key") {
 		t.Fatalf("504 detail does not tell how to recover: %q", pb.Detail)
 	}
-	seen.Wait()
+	if len(rec.all()) != 0 {
+		t.Fatal("B ran while the peer was held")
+	}
 	if g.Pending() != 0 {
 		t.Fatalf("%d waiters leaked after 504", g.Pending())
 	}
-	close(release)
+	unblock()
 	kafkatest.Eventually(t, 10*time.Second, func() bool { return g.DroppedReplies() == 1 }, "late reply dropped")
 	if _, ok := p.bodyFromB(pb.RequestID); !ok || len(rec.all()) != 1 || g.Pending() != 0 {
 		t.Fatalf("B calls %d, pending %d", len(rec.all()), g.Pending())
