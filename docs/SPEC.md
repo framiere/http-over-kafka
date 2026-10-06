@@ -158,6 +158,10 @@ The decisions below fix the observable *behavior*. The *how* belongs to each com
 
 **D14 — The identity of the dedup state is verified, never assumed.** Partition count, topic IDs, retention policy, durability (RF, min.insync.replicas, unclean election) and the authenticity of every record are part of the state. Any mismatch makes the service refuse to serve, with the reset procedure in the message. An error where the broker does not answer is retried; a broker answer that proves a mismatch is fatal. A fresh memory never executes a command older than itself (502 `outcome_unknown`, key reserved). If history is incomplete, "blind" mode until the end of the window. Origin: five double-charge paths reproduced by the verifier, all through operator action.
 
+Dedup purge assumes that every bridge clock stays within `ClockSkew = S` of the gateway clock, including after takeover. Two owners may differ by `2S`. Since a slow owner accepts a command through `ExpiresAt + S`, a fast owner retains its dedup entry and answered markers through `ExpiresAt + 3S`; only a strictly later clock value permits a tombstone. Genesis scans and blind recovery use `IdempotencyRetention + MaxTTL + 3S`. All owners and restarts must use the same clock and retention bounds while state is retained; the bridge rejects negative or overflowing windows at startup.
+
+Restoring a legacy entry extends its persisted purge deadline by `S` once. This does not recover entries already tombstoned. Upgrade every bridge before relying on the new bound; an older running owner still uses the unsafe purge rule.
+
 **D15 — One topic, one creator: its producer.** The gateway creates `http.requests.<svc>` and its reply topic. The bridge creates results, state and layout, with the partition count read from the command topic. The deriver creates events, event-failures and event-dedup.
 
 ## Known limits (final POC state)

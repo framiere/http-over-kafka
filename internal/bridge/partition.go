@@ -467,6 +467,10 @@ func (w *partition) open() (store, error) {
 			}
 		}
 	}
+	if err := w.b.restoreRetention(&st); err != nil {
+		w.b.abandon(&layoutError{err.Error()})
+		return store{}, err
+	}
 	if g := w.b.layout.Genesis; g != "" && st.genesis != g {
 		if err := w.genesisClaims(ctx, &st); err != nil {
 			return store{}, fmt.Errorf("genesis scan: %w", err)
@@ -535,7 +539,7 @@ func (w *partition) genesisClaims(ctx context.Context, st *store) error {
 				resp := wire.FaultResponse(cmd.RequestID, wire.FaultOutcomeUnknown,
 					"this Idempotency-Key was used before the bridge's dedup memory began; its outcome is unknown and it is not executed again")
 				claims[key] = &entry{RequestID: cmd.RequestID, Fingerprint: cmd.Fingerprint(), Phase: done, Outcome: wire.OutcomeUnknown,
-					Response: &resp, Unanswered: true, PurgeAfter: cmd.IssuedAt.Add(w.b.idemWindow()).UTC()}
+					Response: &resp, Unanswered: true, PurgeAfter: cmd.IssuedAt.Add(w.b.idemWindow()).UTC(), RetentionPolicy: retentionPolicy}
 			}
 		}
 	}
@@ -864,7 +868,8 @@ func (w *partition) execute(rec *kgo.Record, cmd wire.Command, op *apispec.Opera
 	t0 := time.Now()
 	key := cmd.DedupKey()
 	if e := w.entry(key); !op.Replayable() && (e == nil || e.Attempt != cur.id) {
-		e := &entry{RequestID: cmd.RequestID, Fingerprint: cmd.Fingerprint(), Phase: started, Attempt: cur.id, PurgeAfter: w.purgeAfter(cmd)}
+		e := &entry{RequestID: cmd.RequestID, Fingerprint: cmd.Fingerprint(), Phase: started, Attempt: cur.id,
+			PurgeAfter: w.purgeAfter(cmd), RetentionPolicy: retentionPolicy}
 		if err := w.submit(&commitReq{gen: g, requestID: cmd.RequestID, writes: map[string]*entry{key: e}, offset: -1}); err != nil {
 			return fmt.Errorf("commit started: %w", err)
 		}
@@ -912,7 +917,8 @@ func (w *partition) complete(rec *kgo.Record, cmd wire.Command, resp wire.Respon
 	if r, ok := w.responseRecord(resp, cmd.ReplyTo); ok {
 		out = append(out, r)
 	}
-	e := &entry{RequestID: cmd.RequestID, Fingerprint: cmd.Fingerprint(), Phase: done, Outcome: res.Outcome, PurgeAfter: w.purgeAfter(cmd)}
+	e := &entry{RequestID: cmd.RequestID, Fingerprint: cmd.Fingerprint(), Phase: done, Outcome: res.Outcome,
+		PurgeAfter: w.purgeAfter(cmd), RetentionPolicy: retentionPolicy}
 	key := answeredKey(cmd.RequestID)
 	if ownEntry {
 		key = cmd.DedupKey()
@@ -920,7 +926,7 @@ func (w *partition) complete(rec *kgo.Record, cmd wire.Command, resp wire.Respon
 			e.Response = &resp
 		}
 	} else {
-		e.PurgeAfter = cmd.ExpiresAt.Add(2 * w.b.cfg.ClockSkew).UTC()
+		e.PurgeAfter = w.b.commandPurgeAfter(cmd)
 	}
 	return w.submit(&commitReq{gen: g, requestID: cmd.RequestID, out: out, writes: map[string]*entry{key: e}, offset: rec.Offset})
 }
@@ -937,7 +943,7 @@ func (w *partition) replay(rec *kgo.Record, cmd wire.Command, e *entry, g uint64
 	}
 	w.b.replays.Add(1)
 	marker := &entry{RequestID: cmd.RequestID, Fingerprint: cmd.Fingerprint(), Phase: done, Outcome: e.Outcome,
-		PurgeAfter: cmd.ExpiresAt.Add(2 * w.b.cfg.ClockSkew).UTC()}
+		PurgeAfter: w.b.commandPurgeAfter(cmd), RetentionPolicy: retentionPolicy}
 	return w.submit(&commitReq{gen: g, requestID: cmd.RequestID, out: out, writes: map[string]*entry{answeredKey(cmd.RequestID): marker}, offset: rec.Offset})
 }
 
@@ -957,7 +963,7 @@ func (w *partition) responseRecord(resp wire.Response, replyTo string) (*kgo.Rec
 }
 
 func (w *partition) purgeAfter(cmd wire.Command) time.Time {
-	t := cmd.ExpiresAt.Add(2 * w.b.cfg.ClockSkew)
+	t := w.b.commandPurgeAfter(cmd)
 	if cmd.IdempotencyKey != "" {
 		if r := w.b.now().Add(w.b.cfg.IdempotencyRetention); r.After(t) {
 			t = r
