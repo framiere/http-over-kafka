@@ -794,11 +794,14 @@ func (w *partition) process(l *lane, rec *kgo.Record, g uint64) error {
 		if e.Phase == done {
 			return nil // redelivery of a command whose outcome is already published
 		}
+		// A replayable operation can have completed after inheriting another
+		// owner's started marker. Preserve that response if its outcome commit
+		// failed; only a durable done entry above supersedes what we know.
+		if cur.resp != nil {
+			return w.complete(rec, cmd, *cur.resp, true, g)
+		}
 		// "started": B was, or may have been, called for this very command.
 		if e.Attempt == cur.id {
-			if cur.resp != nil {
-				return w.complete(rec, cmd, *cur.resp, true, g)
-			}
 			if !cur.called {
 				if op, err := w.b.spec.Check(cmd); err == nil {
 					return w.execute(rec, cmd, op, cur, g)
