@@ -4,3 +4,5 @@ e2e/out/
 /bridge
 /deriver
 /audit
+site/architecture.svg
+site/sequence.svg

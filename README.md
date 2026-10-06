@@ -7,6 +7,8 @@
 [![Go](https://img.shields.io/badge/go-1.26-00ADD8.svg)](go.mod)
 ![Status](https://img.shields.io/badge/status-experimental-orange.svg)
 
+**Website:** https://sderosiaux.github.io/http-over-kafka/
+
 http-over-kafka routes the HTTP calls between your services through Kafka, invisibly. The caller still sends `POST /orders` and still gets B's real `201`. The service still receives a plain HTTP request. Neither one imports a Kafka client. On the way, every mutation (`POST`, `PUT`, `PATCH`, `DELETE`) lands in Kafka as a durable, replayable record, and the business events you declare in your OpenAPI (`OrderCreated`) are published as they happen.
 
 It is an open-source project started at [Conduktor](https://www.conduktor.io). It is experimental: it runs, it is tested hard, and it has known limits listed [below](#status-and-limits).
