@@ -32,6 +32,7 @@
       <a href="#journey">Adopt</a>
       <a href="#guarantees">Guarantees</a>
       <a href="#start">Start</a>
+      <a href="#about">About</a>
     </div>
     <a class="gh-pill" href="https://github.com/sderosiaux/http-over-kafka">
       <svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true"><path fill="currentColor" d="M8 .2a8 8 0 0 0-2.5 15.6c.4 0 .5-.2.5-.4v-1.5c-2.2.5-2.7-1-2.7-1-.4-.9-.9-1.2-.9-1.2-.7-.5.1-.5.1-.5.8.1 1.2.8 1.2.8.7 1.3 1.9.9 2.4.7 0-.5.3-.9.5-1.1-1.8-.2-3.6-.9-3.6-4 0-.9.3-1.6.8-2.1-.1-.2-.4-1 .1-2.1 0 0 .7-.2 2.2.8a7.5 7.5 0 0 1 4 0c1.5-1 2.2-.8 2.2-.8.4 1.1.2 1.9.1 2.1.5.6.8 1.3.8 2.1 0 3.1-1.9 3.8-3.7 4 .3.3.6.8.6 1.5v2.2c0 .2.1.5.6.4A8 8 0 0 0 8 .2Z"/></svg>
@@ -46,23 +47,12 @@
   <section class="hero">
     <div class="hero-glow" aria-hidden="true"></div>
     <div class="hero-inner">
-      <a class="hero-badge reveal" href="https://github.com/sderosiaux/http-over-kafka">
-        <span class="dot" aria-hidden="true"></span>
-        Open source, Apache-2.0, started at Conduktor
-      </a>
       <h1 class="reveal">Turn every HTTP call into a real-time stream.</h1>
       <p class="hero-sub reveal">Your microservices keep speaking HTTP. http-over-kafka carries their calls through Kafka, so every order, payment and update becomes a live event your whole company can build on. Nothing to rewrite, no Kafka client to add.</p>
       <div class="hero-cta reveal">
         <a class="btn btn-ink" href="#start"><span>Run it in two minutes</span><span class="btn-icon" aria-hidden="true"><svg viewBox="0 0 16 16" width="14" height="14"><path d="M4 12 12 4M6 4h6v6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span></a>
         <a class="btn btn-ghost" href="https://github.com/sderosiaux/http-over-kafka"><span>Star on GitHub</span><span class="btn-icon" aria-hidden="true"><svg viewBox="0 0 16 16" width="14" height="14"><path d="m8 1.8 1.9 3.9 4.3.6-3.1 3 .7 4.3L8 11.6l-3.8 2 .7-4.3-3.1-3 4.3-.6L8 1.8Z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg></span></a>
       </div>
-      <ul class="hero-meta reveal" aria-label="Project at a glance">
-        <li data-min="10"><strong data-gh="stars">–</strong> stars</li>
-        <li data-min="5"><strong data-gh="forks">–</strong> forks</li>
-        <li><a href="https://github.com/sderosiaux/http-over-kafka/issues"><strong data-gh="issues">–</strong> <span data-gh-label="issues">open issues</span></a></li>
-        <li>Written in Go</li>
-        <li>Tested against real Kafka</li>
-      </ul>
     </div>
 
     <figure class="stage reveal" aria-label="Animation: HTTP services send calls through a Kafka backbone, and new consumers read the stream">
@@ -95,7 +85,6 @@
   <section class="band band-peach" id="why">
     <div class="wrap">
       <div class="section-head reveal">
-        <span class="tag tag-peach">For platform teams</span>
         <h2>Your company wants real time. Your services speak HTTP.</h2>
         <p>The business asks for live dashboards, instant fraud checks, personalization, AI agents that react as things happen. The data is already there, flowing through your HTTP calls every second. It just disappears once the response is sent.</p>
       </div>
@@ -129,7 +118,6 @@
   <section class="band band-mint" id="see">
     <div class="wrap">
       <div class="section-head reveal">
-        <span class="tag tag-mint">Live example</span>
         <h2>The caller sees HTTP. The service sees HTTP. Kafka sees everything.</h2>
         <p>Three real requests, replayed in a loop. Watch the failed one: it is recorded as a failure and produces no business event. Watch the retry: the service is not called twice.</p>
       </div>
@@ -155,7 +143,6 @@
   <section class="band band-white">
     <div class="wrap">
       <div class="section-head reveal">
-        <span class="tag tag-indigo">What you get</span>
         <h2>A streaming backbone your teams don't have to build.</h2>
       </div>
       <div class="bento">
@@ -206,7 +193,6 @@
   <section class="band band-sky" id="journey">
     <div class="wrap">
       <div class="section-head reveal">
-        <span class="tag tag-sky">The path to real time</span>
         <h2>Adopt streaming one service at a time.</h2>
         <p>No big-bang migration. Each step works on its own and delivers value before the next one.</p>
       </div>
@@ -222,7 +208,6 @@
   <section class="band band-white" id="how">
     <div class="wrap">
       <div class="section-head reveal">
-        <span class="tag tag-indigo">Under the hood</span>
         <h2>How one request crosses Kafka.</h2>
         <p>The request is written to Kafka before the service is touched, so nothing can happen without leaving a trace. For the caller, the call stays synchronous.</p>
       </div>
@@ -237,7 +222,6 @@
   <section class="band band-lavender" id="guarantees">
     <div class="wrap">
       <div class="section-head reveal">
-        <span class="tag tag-indigo">When things break</span>
         <h2>Putting Kafka in the middle is easy. Never charging twice is the work.</h2>
         <p>What a caller receives, and whether the service runs, in every case that matters.</p>
       </div>
@@ -270,55 +254,62 @@
   <section class="band band-white" id="start">
     <div class="wrap">
       <div class="section-head reveal">
-        <span class="tag tag-mint">Get started</span>
-        <h2>From clone to your first event in four steps.</h2>
+        <h2>See your first event in Kafka in three steps.</h2>
+        <p>All you need is Docker. The quickstart runs Kafka, two demo services, http-over-kafka, a live playground and Conduktor Console to browse the topics.</p>
       </div>
-      <ol class="steps">
-        <li class="step reveal">
-          <div class="step-text"><span class="j-num">1</span><h3>Run the demo stack</h3><p>Kafka, two demo services, the gateway, the bridges, the event deriver and an audit consumer. Requires Docker and Go 1.26.</p></div>
-          <div class="code"><button class="copy" type="button">Copy</button><pre><code>git clone https://github.com/sderosiaux/http-over-kafka
-cd http-over-kafka
-make up
-./scripts/demo.sh</code></pre></div>
+      <ol class="qs">
+        <li class="qs-step reveal">
+          <span class="j-num">1</span>
+          <h3>Start everything</h3>
+          <div class="code"><button class="copy" type="button">Copy</button><pre><code>curl -fsSL https://sderosiaux.github.io/http-over-kafka/quickstart.yml \
+  | docker compose -f - up -d --wait</code></pre></div>
+          <div class="qs-out"><span class="qs-label">You get</span><span>Kafka, the gateway, the bridges and the demo services, all healthy.</span></div>
         </li>
-        <li class="step reveal">
-          <div class="step-text"><span class="j-num">2</span><h3>Put one of your services behind it</h3><p>Register the service with the gateway, give the gateway and the bridge its OpenAPI file, and point callers at the gateway's hostname.</p></div>
-          <div class="code"><button class="copy" type="button">Copy</button><pre><code># gateway
-HOK_SERVICES=orders=http://orders:8081
-HOK_SPEC_DIR=/specs        # orders.openapi.yaml
-
-# bridge, one per service
-HOK_SERVICE=orders
-HOK_UPSTREAM=http://orders:8081</code></pre></div>
+        <li class="qs-step reveal">
+          <span class="j-num">2</span>
+          <h3>Call it like any app would</h3>
+          <div class="code"><button class="copy" type="button">Copy</button><pre><code>curl -i localhost:8080/orders -H 'Host: orders' \
+  -H "Authorization: Bearer $(curl -s localhost:8090/token)" \
+  --json '{"customerId":"c-1","items":[{"sku":"A1","quantity":2}]}'</code></pre></div>
+          <div class="qs-out"><span class="qs-label">You get</span><span><code>HTTP/1.1 201 Created</code>, the demo service's own answer.</span></div>
         </li>
-        <li class="step reveal">
-          <div class="step-text"><span class="j-num">3</span><h3>Declare the events you care about</h3><p>A few lines in the OpenAPI file. The event is published only when the service answers <code>201</code>.</p></div>
-          <div class="code"><button class="copy" type="button">Copy</button><pre><code>post:
-  operationId: createOrder
-  x-conduktor-event:
-    on: 201
-    topic: orders.events
-    type: OrderCreated
-    key: $.response.body.id
-    value:
-      id: $.response.body.id
-      customerId: $.request.body.customerId</code></pre></div>
-        </li>
-        <li class="step reveal">
-          <div class="step-text"><span class="j-num">4</span><h3>Subscribe from anywhere</h3><p>Events are CloudEvents with the request ID as <code>ce_id</code>. Any Kafka consumer can read them, now or later.</p></div>
-          <div class="code"><button class="copy" type="button">Copy</button><pre><code>kafka-console-consumer.sh \
-  --bootstrap-server localhost:9092 \
-  --topic orders.events --from-beginning \
-  --isolation-level read_committed</code></pre></div>
+        <li class="qs-step reveal">
+          <span class="j-num">3</span>
+          <h3>Watch it land in Kafka</h3>
+          <div class="qs-links">
+            <a class="qs-link qs-link-play" href="http://localhost:8090"><strong>localhost:8090</strong><span>Live playground: send requests, see the command, the result and <code>OrderCreated</code> appear.</span></a>
+            <a class="qs-link qs-link-cdk" href="http://localhost:8088"><strong>localhost:8088</strong><span>Conduktor Console: browse <code>http.requests.orders</code>, <code>http.results.orders</code> and <code>orders.events</code>. Log in with <code>admin@example.com</code> / <code>Admin_1234!</code></span></a>
+          </div>
         </li>
       </ol>
+      <figure class="bezel console-shot reveal">
+        <div class="bezel-core">
+          <img src="console-orders-events.png" width="1440" height="900" loading="lazy" alt="Conduktor Console showing the orders.events topic: OrderCreated records keyed by order ID, with the customer and items from the original HTTP request.">
+        </div>
+        <figcaption><code>orders.events</code> in Conduktor Console, filled by plain HTTP calls. No service was changed to produce these records.</figcaption>
+      </figure>
+      <p class="qs-more reveal">Ready to try it on your own services? <a href="https://github.com/sderosiaux/http-over-kafka#putting-a-service-behind-the-gateway">Put a service behind the gateway</a>. Done for now? <code>docker compose -p http-over-kafka-quickstart down -v</code></p>
+    </div>
+  </section>
+
+  <section class="band band-about" id="about">
+    <div class="wrap about">
+      <div class="about-head reveal">
+        <h2>Why we built this</h2>
+        <p class="about-sign">The <a href="https://www.conduktor.io">Conduktor</a> team</p>
+      </div>
+      <div class="about-body reveal">
+        <p class="about-lead">At Conduktor we work on Kafka every day, and we see a lot of Kafka deployments. The same story keeps coming back: the technology delivers, and adopting streaming is still hard.</p>
+        <p>Kafka itself is rarely the problem. Streaming asks teams to change how they work: publish what happens instead of keeping it behind an API, and let others build on it. That shift is what makes data valuable. Facts get shared once, every team can use them, and better products for customers follow. Too many companies stop halfway, and that is a waste.</p>
+        <p>Meanwhile, real time has become what customers expect: live order status, instant fraud checks, stock that is right now and not an hour ago. But you can't ask every team to rewrite its services. Those are large programs, with their own budgets and risks, and they compete with everything else on the roadmap.</p>
+        <p>http-over-kafka starts from what you already have. Your HTTP services stay exactly as they are. The stream of your business builds up underneath them, and your teams can start real-time use cases, and get used to thinking in events, without a transformation program.</p>
+      </div>
     </div>
   </section>
 
   <section class="band band-sunrise" id="contribute">
     <div class="wrap contribute">
       <div class="section-head reveal">
-        <span class="tag tag-white">Build it with us</span>
         <h2>Real time shouldn't require a rewrite. Help make it the default.</h2>
         <p>The project is experimental and moving fast. Every change starts as an issue or a pull request. Pick a roadmap item, propose your own, or tell us how you would use it.</p>
       </div>

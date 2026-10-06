@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>http-over-kafka playground</title>
+  <meta name="description" content="Send real HTTP requests through the gateway and watch Kafka record the command, the result and the business event.">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700;800&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="app.css">
+</head>
+<body>
+
+<header class="bar">
+  <a class="brand" href="https://github.com/sderosiaux/http-over-kafka">
+    <img src="favicon.svg" alt="" width="22" height="22">
+    <span>http-over-kafka</span>
+    <span class="brand-sub">playground</span>
+  </a>
+  <ul class="health" aria-label="Connections">
+    <li class="probe" data-probe="gateway" data-state="checking"><span class="probe-dot" aria-hidden="true"></span>Gateway <b>checking</b></li>
+    <li class="probe" data-probe="kafka" data-state="checking"><span class="probe-dot" aria-hidden="true"></span>Kafka <b>checking</b></li>
+    <li class="probe" data-probe="stream" data-state="checking"><span class="probe-dot" aria-hidden="true"></span>Live feed <b>connecting</b></li>
+  </ul>
+</header>
+
+<div class="alerts" data-alerts role="status" aria-live="polite"></div>
+
+<main class="layout">
+  <section class="side" aria-labelledby="title">
+    <h1 id="title">Send a request. Watch Kafka keep it.</h1>
+    <p class="lede">Each button sends a real HTTP request to the gateway, as the <code data-app>checkout</code> application would. The service answers as usual. In the Kafka panel, every record Kafka commits shows up as it lands.</p>
+
+    <p class="terminal">From a terminal: <code data-token-cmd>TOKEN=$(curl -s http://localhost:8090/token)</code> <span>gets a caller token from the playground's dev identity provider, valid 1 h. It signs with the insecure dev key committed in the repo.</span></p>
+
+    <div class="actions" role="group" aria-label="Requests to send">
+      <button class="action" type="button" data-action="create-order">
+        <span class="action-title">Create an order</span>
+        <span class="action-req"><span class="m">POST</span> /orders</span>
+        <span class="action-exp">The service answers 201. Kafka keeps the command, the result and an <em>OrderCreated</em> event.</span>
+      </button>
+      <button class="action" type="button" data-action="invalid-order">
+        <span class="action-title">Send an invalid order</span>
+        <span class="action-req"><span class="m">POST</span> /orders <span class="action-note">with no items</span></span>
+        <span class="action-exp">The service answers 400. Kafka records a failed result, and no event.</span>
+      </button>
+      <button class="action" type="button" data-action="retry" disabled aria-describedby="retry-exp">
+        <span class="action-title">Retry with the same Idempotency-Key</span>
+        <span class="action-req" id="retry-target">nothing to retry yet</span>
+        <span class="action-exp" id="retry-exp">Create an order or charge a card first, then retry it here.</span>
+      </button>
+      <button class="action" type="button" data-action="charge">
+        <span class="action-title">Charge a card</span>
+        <span class="action-req"><span class="m">POST</span> /charges</span>
+        <span class="action-exp">The payments service debits an account once. Its ledger is read back after the call.</span>
+      </button>
+    </div>
+
+    <article class="exchange" data-exchange aria-live="polite" aria-busy="false">
+      <div class="empty">
+        <p class="empty-title">Pick a request above.</p>
+        <p>What was sent, what came back and the same call as a <code>curl</code> command appear here.</p>
+      </div>
+    </article>
+  </section>
+
+  <section class="feed" aria-labelledby="feed-title">
+    <div class="feed-head">
+      <h2 id="feed-title"><span class="kafka-mark" aria-hidden="true"></span>What Kafka recorded</h2>
+      <p class="feed-meta" data-feed-meta>Waiting for the playground…</p>
+    </div>
+    <dl class="legend">
+      <div><dt class="st-command">Command</dt><dd>what was asked</dd></div>
+      <div><dt class="st-response">Response</dt><dd>what the caller got back</dd></div>
+      <div><dt class="st-result">Result</dt><dd>what happened</dd></div>
+      <div><dt class="st-event">Event</dt><dd>the business fact</dd></div>
+    </dl>
+    <p class="console" data-console hidden><a data-console-link href="http://localhost:8088" target="_blank" rel="noopener">Browse these topics in Conduktor Console</a>: <span data-watch></span>.</p>
+    <ol class="traces" data-traces aria-live="polite"></ol>
+    <div class="empty feed-empty" data-feed-empty>
+      <p class="empty-title">Nothing committed yet.</p>
+      <p>Send a request with the buttons, or call the gateway from your terminal: your own <code>curl</code> shows up here too.</p>
+    </div>
+  </section>
+</main>
+
+<template id="tpl-trace">
+  <li class="trace">
+    <header class="trace-head">
+      <span class="trace-req"></span>
+      <span class="trace-who"></span>
+      <span class="trace-mine" hidden>sent from this page</span>
+      <time class="trace-time"></time>
+    </header>
+    <ol class="rail"></ol>
+    <details class="raw">
+      <summary>Raw records</summary>
+      <div class="raw-body"></div>
+    </details>
+  </li>
+</template>
+
+<script src="app.js"></script>
+</body>
+</html>

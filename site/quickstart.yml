@@ -1,14 +1,32 @@
-name: http-over-kafka
+# http-over-kafka quickstart. Only needs Docker:
+#
+#   curl -fsSL https://sderosiaux.github.io/http-over-kafka/quickstart.yml | docker compose -f - up -d --wait
+#
+#   http://localhost:8080   the gateway: call it like any HTTP service (Host: orders)
+#   http://localhost:8090   the playground: send requests, watch Kafka record them
+#   http://localhost:8088   Conduktor Console: browse the topics (admin@example.com / Admin_1234!)
+#
+# Stop and clean up: docker compose -p http-over-kafka-quickstart down -v
+#
+# Every key below is an INSECURE development key, public on purpose so this file
+# runs as is. Never use them outside a laptop.
+name: http-over-kafka-quickstart
+
+x-keys:
+  idp: &idp
+    HOK_JWT_ISSUER: dev-idp
+    HOK_JWT_AUDIENCE: http-over-kafka
+  trusted: &trusted
+    HOK_TRUSTED_GATEWAY_KEYS: "dev-insecure-gateway-1:agXzz5jTSSowAwheM7Cxk5BR+/vWv6ho670TUHVuFtY="
+    HOK_TRUSTED_BRIDGE_KEYS: "dev-insecure-bridge-1:4AIplwBU1mK7EaiFf7HU+cpSfrzR8LhkOMW8HJfQJzc="
 
 services:
   kafka:
-    image: apache/kafka:3.9.1 # same image as internal/kafkatest
+    image: apache/kafka:3.9.1
     ports: ["9092:9092"]
     environment:
       KAFKA_NODE_ID: 1
       KAFKA_PROCESS_ROLES: broker,controller
-      # HOST for processes on the laptop (go run, tests with KAFKA_BROKERS),
-      # DOCKER for containers in this compose project.
       KAFKA_LISTENERS: HOST://:9092,DOCKER://:29092,CONTROLLER://:9093
       KAFKA_ADVERTISED_LISTENERS: HOST://localhost:9092,DOCKER://kafka:29092
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: HOST:PLAINTEXT,DOCKER:PLAINTEXT,CONTROLLER:PLAINTEXT
@@ -19,8 +37,6 @@ services:
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
       KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
-      # Topics are provisioned by the binaries (kafkaenv.EnsureTopics): a
-      # missing one must fail, not appear with 1 MiB max.message.bytes.
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
     healthcheck:
       test: ["CMD", "/opt/kafka/bin/kafka-broker-api-versions.sh", "--bootstrap-server", "localhost:9092"]
@@ -28,104 +44,76 @@ services:
       timeout: 10s
       retries: 30
 
+  # Two ordinary HTTP services. They know nothing about Kafka.
   orders:
-    build: { context: ., args: { CMD: orders } }
+    image: ghcr.io/sderosiaux/http-over-kafka/orders:latest
     ports: ["8081:8081"]
-    environment:
-      ADDR: ":8081"
+    environment: { ADDR: ":8081" }
 
   payments:
-    build: { context: ., args: { CMD: payments } }
+    image: ghcr.io/sderosiaux/http-over-kafka/payments:latest
     ports: ["8082:8082"]
-    environment:
-      ADDR: ":8082"
-      PAYMENTS_DELAY: ${PAYMENTS_DELAY:-0s}
+    environment: { ADDR: ":8082" }
 
-  # gateway and bridge join here; they read KAFKA_BROKERS=kafka:29092 and
-  # Keys (D10): each process gets its own private key file and the public
-  # trusted-keys.env, never another role's private key.
-
-  # What application A calls. Routed by Host: curl -H 'Host: orders' localhost:8080/orders
-  # Token: go run ./cmd/devtoken -app checkout
   gateway:
-    build: { context: ., args: { CMD: gateway } }
+    image: ghcr.io/sderosiaux/http-over-kafka/gateway:latest
     depends_on: { kafka: { condition: service_healthy } }
     restart: on-failure
-    ports: ["8080:8080", "9080:9080"] # API, admin (/healthz, /readyz)
-    env_file: [deploy/gateway-signing.env, deploy/trusted-keys.env, deploy/gateway.env]
+    ports: ["8080:8080", "9080:9080"]
     environment:
+      <<: [*idp, *trusted]
       KAFKA_BROKERS: kafka:29092
-      HOK_GATEWAY_INSTANCE: gateway-1 # stable: names http.responses.gateway-1
+      HOK_GATEWAY_INSTANCE: gateway-1
       HOK_SERVICES: orders=http://orders:8081,payments=http://payments:8082
-      HOK_REQUEST_TIMEOUT: ${HOK_REQUEST_TIMEOUT:-10s}
+      HOK_GATEWAY_SIGNING_KEY: "dev-insecure-gateway-1:eEyFk70mUIfrGf7GSJ63GDL/wAMGXeZUGgFBWeqUOxE="
+      HOK_JWT_KEYS: "dev-insecure-idp-1:owzn7BLYNHbVLCuqHk4elGSQ0sF/csq87feytQzkN0E="
 
-  # Provider side, one per service: http.requests.<svc> → B over plain HTTP →
-  # http.responses.<gateway> + http.results.<svc>, dedup state in
-  # http.bridge-state.<svc>. Scale with --scale: replicas share a consumer group.
   bridge-orders:
-    build: { context: ., args: { CMD: bridge } }
+    image: ghcr.io/sderosiaux/http-over-kafka/bridge:latest
     depends_on: { kafka: { condition: service_healthy } }
     restart: on-failure
-    env_file: [deploy/bridge-signing.env, deploy/trusted-keys.env]
-    environment:
+    environment: &bridge
+      <<: *trusted
       KAFKA_BROKERS: kafka:29092
+      HOK_BRIDGE_SIGNING_KEY: "dev-insecure-bridge-1:GnApwkOEAxgPrpX1b1Cfk+Weep9BOWOK9SdbMo3i7Lo="
       HOK_SERVICE: orders
       HOK_UPSTREAM: http://orders:8081
 
   bridge-payments:
-    build: { context: ., args: { CMD: bridge } }
+    image: ghcr.io/sderosiaux/http-over-kafka/bridge:latest
     depends_on: { kafka: { condition: service_healthy } }
     restart: on-failure
-    env_file: [deploy/bridge-signing.env, deploy/trusted-keys.env]
     environment:
-      KAFKA_BROKERS: kafka:29092
+      <<: *bridge
       HOK_SERVICE: payments
       HOK_UPSTREAM: http://payments:8082
 
-  # Domain events for orders: http.results.orders → orders.events, or
-  # http.event-failures.orders when the mapping cannot be evaluated.
-  # HOK_DERIVER_INSTANCE must stay stable per replica (it names the transactional id).
   deriver-orders:
-    build: { context: ., args: { CMD: deriver } }
+    image: ghcr.io/sderosiaux/http-over-kafka/deriver:latest
     depends_on: { kafka: { condition: service_healthy } }
     restart: on-failure
-    env_file: deploy/trusted-keys.env
     environment:
+      <<: *trusted
       KAFKA_BROKERS: kafka:29092
       HOK_SERVICE: orders
       HOK_DERIVER_INSTANCE: deriver-orders-1
 
-  # What a visitor opens: http://localhost:8090. Buttons call the gateway as
-  # application checkout would; the page streams what Kafka committed. A
-  # client and a reader: the dev IdP key (to mint caller tokens, like
-  # cmd/devtoken) and public keys, no signing key. Bound to localhost because
-  # it mints tokens for whoever reaches it.
   playground:
-    build: { context: ., args: { CMD: playground } }
+    image: ghcr.io/sderosiaux/http-over-kafka/playground:latest
     depends_on:
       kafka: { condition: service_healthy }
       gateway: { condition: service_started }
     restart: on-failure
+    # Bound to localhost: it mints dev tokens for whoever reaches it.
     ports: ["127.0.0.1:8090:8090"]
-    env_file: [deploy/dev-idp.env, deploy/trusted-keys.env]
     environment:
+      <<: [*idp, *trusted]
       KAFKA_BROKERS: kafka:29092
+      HOK_DEV_IDP_KEY: "dev-insecure-idp-1:9YAzKIuHIS8BFk2L+8VRH+gilBZGeHgOmhzrtYmdTq4="
       HOK_PLAYGROUND_GATEWAY: http://gateway:8080
       HOK_PLAYGROUND_GATEWAY_ADMIN: http://gateway:9080
-      HOK_PLAYGROUND_PUBLIC_GATEWAY: http://localhost:8080 # written in curl commands
+      HOK_PLAYGROUND_PUBLIC_GATEWAY: http://localhost:8080
 
-  # Independent reader of every http.requests.* / http.results.* topic:
-  # `docker compose logs -f audit` shows the mutation stream as JSON lines.
-  audit:
-    build: { context: ., args: { CMD: audit } }
-    depends_on: { kafka: { condition: service_healthy } }
-    restart: on-failure
-    env_file: deploy/trusted-keys.env
-    environment:
-      KAFKA_BROKERS: kafka:29092
-
-  # Conduktor Console on http://localhost:8088, to browse the topics this stack
-  # writes (http.requests.*, http.results.*, orders.events). Dev login below.
   console-db:
     image: postgres:17
     environment:

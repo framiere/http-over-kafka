@@ -50,27 +50,33 @@ For the caller the call stays synchronous: its connection is open the whole time
 
 ## Quick start
 
-Requires Go 1.26 and Docker.
+All you need is Docker.
 
 ```sh
-git clone https://github.com/sderosiaux/http-over-kafka && cd http-over-kafka
-make up                                    # Kafka, two demo services, gateway, bridges, deriver, audit
+# 1. Start Kafka, two demo services, http-over-kafka, a live playground and Conduktor Console
+curl -fsSL https://sderosiaux.github.io/http-over-kafka/quickstart.yml | docker compose -f - up -d --wait
 
-TOKEN=$(go run ./cmd/devtoken -app checkout)
-curl -i -H 'Host: orders' -H "Authorization: Bearer $TOKEN" \
-     -H 'Content-Type: application/json' \
-     -d '{"customerId":"c1","items":[{"sku":"A123","quantity":2}]}' \
-     localhost:8080/orders                 # 201 Created, through Kafka
+# 2. Call the gateway like any app would
+curl -i localhost:8080/orders -H 'Host: orders' \
+  -H "Authorization: Bearer $(curl -s localhost:8090/token)" \
+  --json '{"customerId":"c-1","items":[{"sku":"A1","quantity":2}]}'
+# HTTP/1.1 201 Created
 
-./scripts/demo.sh                          # nine scenarios with the raw evidence
-make down
+# 3. Watch it land in Kafka
+open http://localhost:8090   # playground: command, response, result and OrderCreated, live
+open http://localhost:8088   # Conduktor Console (admin@example.com / Admin_1234!)
+
+# Clean up
+docker compose -p http-over-kafka-quickstart down -v
 ```
 
-The gateway routes on the first label of the `Host` header (`orders`, `orders.internal`), so callers keep their hostnames.
+The gateway routes on the first label of the `Host` header (`orders`, `orders.internal`), so callers keep their hostnames. The playground's `/token` endpoint hands out caller tokens from a development identity provider.
 
-`scripts/demo.sh` shows each claim with evidence you can check: the same request direct and through the gateway, the command record in Kafka (with no trace of the JWT), the `OrderCreated` event, an idempotent retry, a timeout followed by a replay, a `kill -9` of the bridge while the payment service is debiting, a `GET` that writes nothing to Kafka, and the audit trail. After each step it reads the payment service's own ledger.
+### From source
 
-The keys in `deploy/*.env` are development keys, committed on purpose so the stack starts on a laptop. They are named `dev-insecure-*`. Generate your own with `go run ./cmd/keygen -role gateway|bridge -kid <kid>`.
+Requires Go 1.26 and Docker. `make up` builds and starts the same stack from the code; `./scripts/demo.sh` then runs nine scenarios against it and prints the raw evidence for each, including a `kill -9` of the bridge while the payment service is debiting.
+
+The keys in `deploy/*.env` and in `quickstart.yml` are development keys, committed on purpose so the stack starts on a laptop. They are named `dev-insecure-*`. Generate your own with `go run ./cmd/keygen -role gateway|bridge -kid <kid>`.
 
 ## Putting a service behind the gateway
 
