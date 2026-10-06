@@ -69,9 +69,10 @@ type partition struct {
 	paused   bool
 
 	// committer goroutine only
-	prod      *kgo.Client
-	purgeNext func() (string, bool)
-	purgeStop func()
+	prod            *kgo.Client
+	purgeNext       func() (string, bool)
+	purgeStop       func()
+	nextStateOffset int64
 }
 
 func newPartition(b *Bridge, cons *kgo.Client, id int32) *partition {
@@ -417,15 +418,35 @@ func (w *partition) open() (store, error) {
 		return store{}, err
 	}
 	w.prod = prod
-
-	fence, err := stateRecord(w.b.cfg.Signer, w.b.stateTopic, w.id, keyFence, fenceValue{Instance: w.b.cfg.Instance, At: time.Now().UTC()})
+	// Fence the previous producer before observing a stable append position.
+	// InitProducerID can resolve an abandoned transaction; its abort marker
+	// must be visible before we predict offsets for the new owner.
+	if _, _, err := prod.ProducerID(ctx); err != nil {
+		return store{}, err
+	}
+	end, err := w.stableStateEnd(ctx)
 	if err != nil {
 		return store{}, err
 	}
+	w.nextStateOffset = end
+
+	fence, err := stateRecord(w.b.stateTopic, w.id, keyFence, fenceValue{Instance: w.b.cfg.Instance, At: time.Now().UTC()})
+	if err != nil {
+		return store{}, err
+	}
+	var initial []*kgo.Record
+	if end == 0 {
+		seal, err := stateRecord(w.b.stateTopic, w.id, keySeal, sealValue{})
+		if err != nil {
+			return store{}, err
+		}
+		initial = append(initial, seal)
+	}
+	initial = append(initial, fence)
 	if err := prod.BeginTransaction(); err != nil {
 		return store{}, err
 	}
-	if err := prod.ProduceSync(ctx, fence).FirstErr(); err != nil {
+	if err := w.produceState(ctx, initial); err != nil {
 		w.abort()
 		return store{}, fmt.Errorf("fence: %w", err)
 	}
@@ -466,6 +487,10 @@ func (w *partition) open() (store, error) {
 				return store{}, err
 			}
 		}
+	}
+	if err := st.verifySeal(); err != nil {
+		w.b.abandon(&layoutError{err.Error()})
+		return store{}, err
 	}
 	if err := w.b.restoreRetention(&st); err != nil {
 		w.b.abandon(&layoutError{err.Error()})
@@ -552,7 +577,7 @@ func (w *partition) genesisClaims(ctx context.Context, st *store) error {
 	for i := 0; ; i += 256 {
 		var recs []*kgo.Record
 		for _, k := range keys[i:min(i+256, len(keys))] {
-			r, err := stateRecord(w.b.cfg.Signer, w.b.stateTopic, w.id, k, claims[k])
+			r, err := stateRecord(w.b.stateTopic, w.id, k, claims[k])
 			if err != nil {
 				return err
 			}
@@ -560,16 +585,26 @@ func (w *partition) genesisClaims(ctx context.Context, st *store) error {
 		}
 		last := i+256 >= len(keys)
 		if last {
-			gr, err := stateRecord(w.b.cfg.Signer, w.b.stateTopic, w.id, keyGenesis, l.Genesis)
+			gr, err := stateRecord(w.b.stateTopic, w.id, keyGenesis, l.Genesis)
 			if err != nil {
 				return err
 			}
 			recs = append(recs, gr)
 		}
+		genesis := st.genesis
+		if last {
+			genesis = l.Genesis
+		}
+		seal, err := stateRecord(w.b.stateTopic, w.id, keySeal,
+			sealValue{len(st.entries) + min(i+256, len(keys)), st.next, genesis})
+		if err != nil {
+			return err
+		}
+		recs = append(recs, seal)
 		if err := w.prod.BeginTransaction(); err != nil {
 			return err
 		}
-		if err := w.prod.ProduceSync(ctx, recs...).FirstErr(); err != nil {
+		if err := w.produceState(ctx, recs); err != nil {
 			w.abort()
 			return err
 		}
@@ -611,7 +646,7 @@ func (w *partition) commitBatch(reqs []*commitReq) error {
 		recs = append(recs, r.out...)
 		for k, e := range r.writes {
 			writes[k] = e
-			sr, err := stateRecord(w.b.cfg.Signer, w.b.stateTopic, w.id, k, e)
+			sr, err := stateRecord(w.b.stateTopic, w.id, k, e)
 			if err != nil {
 				return err
 			}
@@ -626,24 +661,36 @@ func (w *partition) commitBatch(reqs []*commitReq) error {
 	purged := w.expired(writes)
 	w.mu.Unlock()
 	if next > w.st.next {
-		sr, err := stateRecord(w.b.cfg.Signer, w.b.stateTopic, w.id, keyOffset, offsetValue{Next: next})
+		sr, err := stateRecord(w.b.stateTopic, w.id, keyOffset, offsetValue{Next: next})
 		if err != nil {
 			return err
 		}
 		recs = append(recs, sr)
 	}
 	for _, k := range purged {
-		sr, _ := stateRecord(w.b.cfg.Signer, w.b.stateTopic, w.id, k, nil)
+		sr, _ := stateRecord(w.b.stateTopic, w.id, k, nil)
 		recs = append(recs, sr)
 	}
-
 	if len(recs) == 0 {
 		return nil // a scan-only chunk needs no Kafka transaction
 	}
+	count := len(w.st.entries) - len(purged)
+	for k := range writes {
+		if _, exists := w.st.entries[k]; !exists {
+			count++
+		}
+	}
+	seal, err := stateRecord(w.b.stateTopic, w.id, keySeal,
+		sealValue{count, next, w.st.genesis})
+	if err != nil {
+		return err
+	}
+	recs = append(recs, seal)
+
 	if err := w.prod.BeginTransaction(); err != nil {
 		return err
 	}
-	if err := w.prod.ProduceSync(ctx, recs...).FirstErr(); err != nil {
+	if err := w.produceState(ctx, recs); err != nil {
 		w.abort()
 		return err
 	}

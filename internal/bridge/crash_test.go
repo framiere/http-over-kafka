@@ -1,9 +1,9 @@
 package bridge_test
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/twmb/franz-go/pkg/kgo"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -14,9 +14,12 @@ import (
 	"time"
 
 	"github.com/sderosiaux/http-over-kafka/api"
+	"github.com/sderosiaux/http-over-kafka/internal/bridge"
 	"github.com/sderosiaux/http-over-kafka/internal/demo/orders"
 	"github.com/sderosiaux/http-over-kafka/internal/kafkatest"
 	"github.com/sderosiaux/http-over-kafka/internal/wire"
+	"github.com/twmb/franz-go/pkg/kadm"
+	"github.com/twmb/franz-go/pkg/kgo"
 )
 
 // A bridge process is SIGKILLed at each point of the processing of a charge,
@@ -255,7 +258,7 @@ func TestCommitFailureWhileOwnerKeepsRealOutcome(t *testing.T) {
 					}
 					// Another instance of the same bridge (it holds the key),
 					// as a zombie's successor would be.
-					rec := signedState(e, int32(p), "#fence", []byte(`{"instance":"intruder"}`))
+					rec := successorFence(t, e, cl, int32(p))
 					if err := cl.ProduceSync(t.Context(), rec).FirstErr(); err != nil {
 						t.Error(err)
 					}
@@ -287,6 +290,35 @@ func TestCommitFailureWhileOwnerKeepsRealOutcome(t *testing.T) {
 			}
 		})
 	}
+}
+
+// A legitimate successor first fences and resolves its predecessor, then
+// binds its record to the position Kafka is actually going to assign.
+func successorFence(t *testing.T, e *env, cl *kgo.Client, p int32) *kgo.Record {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(t.Context(), 30*time.Second)
+	defer cancel()
+	if _, _, err := cl.ProducerID(ctx); err != nil {
+		t.Fatal(err)
+	}
+	topic := bridge.StateTopic(e.service)
+	a := kadm.NewClient(cl)
+	var next int64
+	kafkatest.Eventually(t, 30*time.Second, func() bool {
+		ends, err := a.ListEndOffsets(ctx, topic)
+		if err != nil {
+			return false
+		}
+		stable, err := a.ListCommittedOffsets(ctx, topic)
+		if err != nil {
+			return false
+		}
+		end, eok := ends.Lookup(topic, p)
+		lso, sok := stable.Lookup(topic, p)
+		next = end.Offset
+		return eok && sok && end.Err == nil && lso.Err == nil && end.Offset == lso.Offset
+	}, "predecessor transaction resolved")
+	return signStateWith(e.bridgeSigner, topic, p, "#fence", []byte(`{"instance":"intruder"}`), next)
 }
 
 // SIGKILL in the middle of concurrent load: many lanes are between "started"

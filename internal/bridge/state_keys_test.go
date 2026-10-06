@@ -92,17 +92,19 @@ func TestStateKeyRotationPreservesSignatureBinding(t *testing.T) {
 				}
 			}
 			for name, alter := range map[string]func(*kgo.Record){
-				"topic":     func(r *kgo.Record) { r.Topic = StateTopic("orders") },
-				"partition": func(r *kgo.Record) { r.Partition++ },
-				"key":       func(r *kgo.Record) { r.Key = []byte("i:victim") },
-				"value":     func(r *kgo.Record) { r.Value = []byte(`{"phase":"done"}`) },
-				"tombstone": func(r *kgo.Record) { r.Value = nil },
-				"unsigned":  func(r *kgo.Record) { r.Headers = nil },
+				"topic":               func(r *kgo.Record) { r.Topic = StateTopic("orders") },
+				"partition":           func(r *kgo.Record) { r.Partition++ },
+				"offset":              func(r *kgo.Record) { r.Offset++ },
+				"key":                 func(r *kgo.Record) { r.Key = []byte("i:victim") },
+				"value":               func(r *kgo.Record) { r.Value = []byte(`{"phase":"done"}`) },
+				"tombstone":           func(r *kgo.Record) { r.Value = nil },
+				"unsigned":            func(r *kgo.Record) { r.Headers = nil },
+				"duplicate signature": func(r *kgo.Record) { r.Headers = append(r.Headers, r.Headers[1]) },
 				"unknown key": func(r *kgo.Record) {
 					*r = *signedStateRecord(stateTestSigner(t, "unknown", 3), r.Topic, r.Partition, string(r.Key), r.Value)
 				},
 				"wrong domain": func(r *kgo.Record) {
-					sig := signer.Sign("http-over-kafka/response/v1", stateSigned(r.Topic, r.Partition, string(r.Key), r.Value))
+					sig := signer.Sign("http-over-kafka/response/v1", stateSigned(r.Topic, r.Partition, string(r.Key), r.Value, r.Offset))
 					r.Headers[1].Value = []byte(base64.StdEncoding.EncodeToString(sig))
 				},
 			} {
