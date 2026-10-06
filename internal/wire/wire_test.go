@@ -10,8 +10,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sderosiaux/kafka-backbone-for-http/internal/identity"
-	"github.com/sderosiaux/kafka-backbone-for-http/internal/wire"
+	"github.com/sderosiaux/http-over-kafka/internal/identity"
+	"github.com/sderosiaux/http-over-kafka/internal/wire"
 	"github.com/twmb/franz-go/pkg/kgo"
 )
 

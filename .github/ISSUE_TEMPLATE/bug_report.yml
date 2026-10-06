@@ -1,0 +1,37 @@
+name: Bug report
+description: Something does not behave as documented.
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you ran, what you expected, what you got.
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: How to reproduce
+      description: Commands, requests, or a failing test. The smaller the better.
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: Gateway and bridge logs around the requestId, if you have them.
+      render: text
+  - type: input
+    id: version
+    attributes:
+      label: Commit or version
+      placeholder: e.g. main @ 51601a8
+  - type: textarea
+    id: env
+    attributes:
+      label: Environment
+      description: Kafka version and number of brokers, OS, Go version.
+  - type: markdown
+    attributes:
+      value: "Security issue? Please report it privately instead: see SECURITY.md."

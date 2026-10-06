@@ -3,7 +3,7 @@ package gateway
 import (
 	"testing"
 
-	"github.com/sderosiaux/kafka-backbone-for-http/internal/apispec"
+	"github.com/sderosiaux/http-over-kafka/internal/apispec"
 )
 
 func TestRawQueryDropsOnlySecretsAndKeepsBytes(t *testing.T) {

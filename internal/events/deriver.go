@@ -10,10 +10,10 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/sderosiaux/kafka-backbone-for-http/internal/apispec"
-	"github.com/sderosiaux/kafka-backbone-for-http/internal/identity"
-	"github.com/sderosiaux/kafka-backbone-for-http/internal/kafkaenv"
-	"github.com/sderosiaux/kafka-backbone-for-http/internal/wire"
+	"github.com/sderosiaux/http-over-kafka/internal/apispec"
+	"github.com/sderosiaux/http-over-kafka/internal/identity"
+	"github.com/sderosiaux/http-over-kafka/internal/kafkaenv"
+	"github.com/sderosiaux/http-over-kafka/internal/wire"
 	"github.com/twmb/franz-go/pkg/kadm"
 	"github.com/twmb/franz-go/pkg/kgo"
 )
@@ -39,14 +39,14 @@ const (
 func FailureTopic(service string) string { return "http.event-failures." + service }
 
 // GroupID is shared by all deriver instances of a service.
-func GroupID(service string) string { return "kb-deriver." + service }
+func GroupID(service string) string { return "hok-deriver." + service }
 
 // TransactionalID must be stable per instance across restarts: a restarted
 // instance fences its predecessor and aborts its open transaction at once.
 // A fresh id leaves that transaction open until it times out, which stalls
 // read_committed consumers of the event topics meanwhile.
 func TransactionalID(service, instance string) string {
-	return "kb-deriver." + service + "." + instance
+	return "hok-deriver." + service + "." + instance
 }
 
 // Topics are the topics the deriver writes to (dedupWindow 0: the default). The result topic is the

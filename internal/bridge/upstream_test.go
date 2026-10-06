@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sderosiaux/kafka-backbone-for-http/internal/apispec"
-	"github.com/sderosiaux/kafka-backbone-for-http/internal/wire"
+	"github.com/sderosiaux/http-over-kafka/internal/apispec"
+	"github.com/sderosiaux/http-over-kafka/internal/wire"
 )
 
 // flaky executes every POST /effect, then drops the connection without

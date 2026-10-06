@@ -15,8 +15,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/sderosiaux/kafka-backbone-for-http/internal/apispec"
-	"github.com/sderosiaux/kafka-backbone-for-http/internal/wire"
+	"github.com/sderosiaux/http-over-kafka/internal/apispec"
+	"github.com/sderosiaux/http-over-kafka/internal/wire"
 )
 
 // Headers the bridge sets on every request to B. Any value the caller sent

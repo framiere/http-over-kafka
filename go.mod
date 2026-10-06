@@ -1,4 +1,4 @@
-module github.com/sderosiaux/kafka-backbone-for-http
+module github.com/sderosiaux/http-over-kafka
 
 go 1.26.2
 

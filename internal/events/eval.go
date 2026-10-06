@@ -7,8 +7,8 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/sderosiaux/kafka-backbone-for-http/internal/apispec"
-	"github.com/sderosiaux/kafka-backbone-for-http/internal/wire"
+	"github.com/sderosiaux/http-over-kafka/internal/apispec"
+	"github.com/sderosiaux/http-over-kafka/internal/wire"
 )
 
 // Evaluation is strict. An expression that does not resolve to a value fails

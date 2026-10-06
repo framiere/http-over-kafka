@@ -9,7 +9,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/sderosiaux/kafka-backbone-for-http/internal/demo/payments"
+	"github.com/sderosiaux/http-over-kafka/internal/demo/payments"
 )
 
 func main() {

@@ -1,4 +1,4 @@
-name: kafka-backbone
+name: http-over-kafka
 
 services:
   kafka:
@@ -55,9 +55,9 @@ services:
     env_file: [deploy/gateway-signing.env, deploy/trusted-keys.env, deploy/gateway.env]
     environment:
       KAFKA_BROKERS: kafka:29092
-      KB_GATEWAY_INSTANCE: gateway-1 # stable: names http.responses.gateway-1
-      KB_SERVICES: orders=http://orders:8081,payments=http://payments:8082
-      KB_REQUEST_TIMEOUT: ${KB_REQUEST_TIMEOUT:-10s}
+      HOK_GATEWAY_INSTANCE: gateway-1 # stable: names http.responses.gateway-1
+      HOK_SERVICES: orders=http://orders:8081,payments=http://payments:8082
+      HOK_REQUEST_TIMEOUT: ${HOK_REQUEST_TIMEOUT:-10s}
 
   # Provider side, one per service: http.requests.<svc> → B over plain HTTP →
   # http.responses.<gateway> + http.results.<svc>, dedup state in
@@ -69,8 +69,8 @@ services:
     env_file: [deploy/bridge-signing.env, deploy/trusted-keys.env]
     environment:
       KAFKA_BROKERS: kafka:29092
-      KB_SERVICE: orders
-      KB_UPSTREAM: http://orders:8081
+      HOK_SERVICE: orders
+      HOK_UPSTREAM: http://orders:8081
 
   bridge-payments:
     build: { context: ., args: { CMD: bridge } }
@@ -79,12 +79,12 @@ services:
     env_file: [deploy/bridge-signing.env, deploy/trusted-keys.env]
     environment:
       KAFKA_BROKERS: kafka:29092
-      KB_SERVICE: payments
-      KB_UPSTREAM: http://payments:8082
+      HOK_SERVICE: payments
+      HOK_UPSTREAM: http://payments:8082
 
   # Domain events for orders: http.results.orders → orders.events, or
   # http.event-failures.orders when the mapping cannot be evaluated.
-  # KB_DERIVER_INSTANCE must stay stable per replica (it names the transactional id).
+  # HOK_DERIVER_INSTANCE must stay stable per replica (it names the transactional id).
   deriver-orders:
     build: { context: ., args: { CMD: deriver } }
     depends_on: { kafka: { condition: service_healthy } }
@@ -92,8 +92,8 @@ services:
     env_file: deploy/trusted-keys.env
     environment:
       KAFKA_BROKERS: kafka:29092
-      KB_SERVICE: orders
-      KB_DERIVER_INSTANCE: deriver-orders-1
+      HOK_SERVICE: orders
+      HOK_DERIVER_INSTANCE: deriver-orders-1
 
   # Independent reader of every http.requests.* / http.results.* topic:
   # `docker compose logs -f audit` shows the mutation stream as JSON lines.

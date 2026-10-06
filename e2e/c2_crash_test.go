@@ -10,12 +10,12 @@ import (
 )
 
 const (
-	probUnknown   = "urn:kafka-backbone:outcome_unknown"
-	probTimeout   = "urn:kafka-backbone:gateway-timeout"
-	probTransport = "urn:kafka-backbone:transport_unavailable"
-	probUpstream  = "urn:kafka-backbone:upstream_unavailable"
-	probStale     = "urn:kafka-backbone:command_stale"
-	probReused    = "urn:kafka-backbone:idempotency_key_reused"
+	probUnknown   = "urn:http-over-kafka:outcome_unknown"
+	probTimeout   = "urn:http-over-kafka:gateway-timeout"
+	probTransport = "urn:http-over-kafka:transport_unavailable"
+	probUpstream  = "urn:http-over-kafka:upstream_unavailable"
+	probStale     = "urn:http-over-kafka:command_stale"
+	probReused    = "urn:http-over-kafka:idempotency_key_reused"
 )
 
 type resultView struct {
@@ -173,7 +173,7 @@ func TestC2_BAnsweredKafkaFrozenBridgeSurvives(t *testing.T) {
 // holding B's answer and tries to publish it.
 func TestC2_ZombieBridge(t *testing.T) {
 	spec := t.TempDir()
-	one := map[string]string{"KB_PARTITIONS": "1"} // one partition: one owner, one standby
+	one := map[string]string{"HOK_PARTITIONS": "1"} // one partition: one owner, one standby
 	pay := startPayments(t, spec, 3*time.Second)
 	g := newGatewayEnv(t, spec, 120*time.Second, one, pay).startReady(t)
 	b1 := newBridgeEnv(t, spec, pay, "b1", one)

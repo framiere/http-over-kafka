@@ -79,7 +79,7 @@ func TestD3_WipeWhileKeysAreRetryable(t *testing.T) {
 		})
 	}
 	wipe("http.bridge-layout."+pay.name, "http.bridge-state."+pay.name)
-	if _, err := adm.DeleteGroups(ctx, "kb-bridge."+pay.name); err != nil {
+	if _, err := adm.DeleteGroups(ctx, "hok-bridge."+pay.name); err != nil {
 		t.Fatal(err)
 	}
 	t.Logf("operator: deleted layout, state and consumer group, as the refusal message says")
@@ -171,7 +171,7 @@ func TestD3_WipeAfterCommandsExpired(t *testing.T) {
 		}
 		return true
 	})
-	if _, err := adm.DeleteGroups(ctx, "kb-bridge."+pay.name); err != nil {
+	if _, err := adm.DeleteGroups(ctx, "hok-bridge."+pay.name); err != nil {
 		t.Fatal(err)
 	}
 	t.Logf("operator: command records expired/purged, then total wipe")
@@ -235,10 +235,10 @@ func TestD3_RepartitionThenPrescribedReset(t *testing.T) {
 		}
 		return true
 	})
-	if _, err := adm.DeleteGroups(ctx, "kb-bridge."+pay.name); err != nil {
+	if _, err := adm.DeleteGroups(ctx, "hok-bridge."+pay.name); err != nil {
 		t.Fatal(err)
 	}
-	// Every binary would recreate http.results with KB_PARTITIONS (6) and the
+	// Every binary would recreate http.results with HOK_PARTITIONS (6) and the
 	// bridge would then refuse on mismatched counts: the operator creates it
 	// with 12 by hand.
 	if _, err := adm.CreateTopic(ctx, 12, -1, map[string]*string{"max.message.bytes": ptr("8388608")}, "http.results."+pay.name); err != nil {

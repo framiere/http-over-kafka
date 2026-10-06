@@ -3,10 +3,10 @@
 // method, path) and the outcome. It needs no change to A, B, gateway or bridge.
 //
 //	KAFKA_BROKERS    required
-//	KB_AUDIT_GROUP   consumer group (default kb-audit); a new group replays
+//	HOK_AUDIT_GROUP   consumer group (default hok-audit); a new group replays
 //	                 the stream from the beginning
-//	KB_TRUSTED_GATEWAY_KEYS  public keys checking commands
-//	KB_TRUSTED_BRIDGE_KEYS   public keys checking results
+//	HOK_TRUSTED_GATEWAY_KEYS  public keys checking commands
+//	HOK_TRUSTED_BRIDGE_KEYS   public keys checking results
 //	                         either may be absent: that role's entries are then
 //	                         marked "unverified", never "authentic"
 package main
@@ -18,9 +18,9 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/sderosiaux/kafka-backbone-for-http/internal/audit"
-	"github.com/sderosiaux/kafka-backbone-for-http/internal/identity"
-	"github.com/sderosiaux/kafka-backbone-for-http/internal/kafkaenv"
+	"github.com/sderosiaux/http-over-kafka/internal/audit"
+	"github.com/sderosiaux/http-over-kafka/internal/identity"
+	"github.com/sderosiaux/http-over-kafka/internal/kafkaenv"
 )
 
 func main() {
@@ -50,9 +50,9 @@ func run() error {
 			return err
 		}
 	}
-	group := os.Getenv("KB_AUDIT_GROUP")
+	group := os.Getenv("HOK_AUDIT_GROUP")
 	if group == "" {
-		group = "kb-audit"
+		group = "hok-audit"
 	}
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()

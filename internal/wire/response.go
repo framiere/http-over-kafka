@@ -136,9 +136,9 @@ const ProblemContentType = "application/problem+json"
 
 // ProblemTypeTimeout is the type of the gateway's 504 (D4): the command was
 // published and may still execute.
-const ProblemTypeTimeout = "urn:kafka-backbone:gateway-timeout"
+const ProblemTypeTimeout = "urn:http-over-kafka:gateway-timeout"
 
-func ProblemType(f Fault) string { return "urn:kafka-backbone:" + string(f) }
+func ProblemType(f Fault) string { return "urn:http-over-kafka:" + string(f) }
 
 func (p Problem) Bytes() []byte {
 	b, err := json.Marshal(p)

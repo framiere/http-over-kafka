@@ -14,13 +14,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sderosiaux/kafka-backbone-for-http/internal/apispec"
-	"github.com/sderosiaux/kafka-backbone-for-http/internal/devidp"
-	"github.com/sderosiaux/kafka-backbone-for-http/internal/gateway"
-	"github.com/sderosiaux/kafka-backbone-for-http/internal/identity"
-	"github.com/sderosiaux/kafka-backbone-for-http/internal/kafkaenv"
-	"github.com/sderosiaux/kafka-backbone-for-http/internal/kafkatest"
-	"github.com/sderosiaux/kafka-backbone-for-http/internal/wire"
+	"github.com/sderosiaux/http-over-kafka/internal/apispec"
+	"github.com/sderosiaux/http-over-kafka/internal/devidp"
+	"github.com/sderosiaux/http-over-kafka/internal/gateway"
+	"github.com/sderosiaux/http-over-kafka/internal/identity"
+	"github.com/sderosiaux/http-over-kafka/internal/kafkaenv"
+	"github.com/sderosiaux/http-over-kafka/internal/kafkatest"
+	"github.com/sderosiaux/http-over-kafka/internal/wire"
 	"github.com/twmb/franz-go/pkg/kgo"
 )
 
@@ -28,7 +28,7 @@ func TestMain(m *testing.M) { kafkatest.Main(m) }
 
 const (
 	testIssuer   = "test-idp"
-	testAudience = "kafka-backbone"
+	testAudience = "http-over-kafka"
 )
 
 // keys are generated once per test binary: gateway and bridge signing keys

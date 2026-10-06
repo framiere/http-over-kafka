@@ -3,7 +3,7 @@ package gateway
 import (
 	"sync"
 
-	"github.com/sderosiaux/kafka-backbone-for-http/internal/wire"
+	"github.com/sderosiaux/http-over-kafka/internal/wire"
 )
 
 // replies routes Responses from this instance's reply topic to the handler

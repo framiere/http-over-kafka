@@ -8,9 +8,9 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/sderosiaux/kafka-backbone-for-http/internal/identity"
-	"github.com/sderosiaux/kafka-backbone-for-http/internal/kafkaenv"
-	"github.com/sderosiaux/kafka-backbone-for-http/internal/wire"
+	"github.com/sderosiaux/http-over-kafka/internal/identity"
+	"github.com/sderosiaux/http-over-kafka/internal/kafkaenv"
+	"github.com/sderosiaux/http-over-kafka/internal/wire"
 	"github.com/twmb/franz-go/pkg/kgo"
 )
 
@@ -97,11 +97,11 @@ type fenceValue struct {
 // (D10) or erase a "started" marker. The signature binds topic, partition
 // and key with the value, so a genuine record copied elsewhere does not
 // verify either. Tombstones are signed too (empty value).
-const signDomainState = "kafka-backbone/bridge-state/v1"
+const signDomainState = "http-over-kafka/bridge-state/v1"
 
 const (
-	headerKeyID = "kb-kid"
-	headerSig   = "kb-sig"
+	headerKeyID = "hok-kid"
+	headerSig   = "hok-sig"
 )
 
 func stateSigned(topic string, partition int32, key string, value []byte) []byte {

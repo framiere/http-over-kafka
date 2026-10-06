@@ -1,0 +1,20 @@
+name: Feature request
+description: A use case the project does not cover yet.
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: What are you trying to do, and what stops you today?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What you would expect
+      description: The behavior you would like to see. If it changes a guarantee (delivery, secrets, events), say which one.
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives you considered

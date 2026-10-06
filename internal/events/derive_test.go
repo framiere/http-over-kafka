@@ -4,9 +4,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/sderosiaux/kafka-backbone-for-http/api"
-	"github.com/sderosiaux/kafka-backbone-for-http/internal/events"
-	"github.com/sderosiaux/kafka-backbone-for-http/internal/wire"
+	"github.com/sderosiaux/http-over-kafka/api"
+	"github.com/sderosiaux/http-over-kafka/internal/events"
+	"github.com/sderosiaux/http-over-kafka/internal/wire"
 )
 
 func TestDeriveOrderCreated(t *testing.T) {

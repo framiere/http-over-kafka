@@ -5,17 +5,17 @@
 // Environment:
 //
 //	KAFKA_BROKERS             broker list
-//	KB_TRUSTED_GATEWAY_KEYS   gateway public keys: verify commands
-//	KB_BRIDGE_SIGNING_KEY     bridge private key: signs responses, results and its dedup state (D10)
-//	KB_SERVICE                service name, e.g. payments
-//	KB_UPSTREAM               the service's base URL, e.g. http://payments:8082
-//	KB_UPSTREAM_CREDENTIALS   service.scheme=value,...: the service's own credential when its
+//	HOK_TRUSTED_GATEWAY_KEYS   gateway public keys: verify commands
+//	HOK_BRIDGE_SIGNING_KEY     bridge private key: signs responses, results and its dedup state (D10)
+//	HOK_SERVICE                service name, e.g. payments
+//	HOK_UPSTREAM               the service's base URL, e.g. http://payments:8082
+//	HOK_UPSTREAM_CREDENTIALS   service.scheme=value,...: the service's own credential when its
 //	                          contract requires one for mutations (D12); checked at startup
-//	KB_SPEC_DIR               optional: <dir>/<name>.openapi.yaml; else the embedded demo specs
-//	KB_BRIDGE_INSTANCE        instance id for logs (default: hostname)
-//	KB_UPSTREAM_TIMEOUT       one call to the service; past it the outcome is unknown (default 15s)
-//	KB_IDEMPOTENCY_RETENTION  how long a keyed outcome stays replayable (default 24h)
-//	KB_SESSION_TIMEOUT        how long a dead bridge's partitions stay frozen (default 10s)
+//	HOK_SPEC_DIR               optional: <dir>/<name>.openapi.yaml; else the embedded demo specs
+//	HOK_BRIDGE_INSTANCE        instance id for logs (default: hostname)
+//	HOK_UPSTREAM_TIMEOUT       one call to the service; past it the outcome is unknown (default 15s)
+//	HOK_IDEMPOTENCY_RETENTION  how long a keyed outcome stays replayable (default 24h)
+//	HOK_SESSION_TIMEOUT        how long a dead bridge's partitions stay frozen (default 10s)
 package main
 
 import (
@@ -30,11 +30,11 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/sderosiaux/kafka-backbone-for-http/api"
-	"github.com/sderosiaux/kafka-backbone-for-http/internal/apispec"
-	"github.com/sderosiaux/kafka-backbone-for-http/internal/bridge"
-	"github.com/sderosiaux/kafka-backbone-for-http/internal/identity"
-	"github.com/sderosiaux/kafka-backbone-for-http/internal/kafkaenv"
+	"github.com/sderosiaux/http-over-kafka/api"
+	"github.com/sderosiaux/http-over-kafka/internal/apispec"
+	"github.com/sderosiaux/http-over-kafka/internal/bridge"
+	"github.com/sderosiaux/http-over-kafka/internal/identity"
+	"github.com/sderosiaux/http-over-kafka/internal/kafkaenv"
 )
 
 var embeddedSpecs = map[string][]byte{"orders": api.Orders, "payments": api.Payments}
@@ -86,25 +86,25 @@ func config(logger *slog.Logger) (bridge.Config, error) {
 	errs = append(errs, err)
 	signer, err := identity.SignerFromEnv(identity.RoleBridge)
 	errs = append(errs, err)
-	instance := os.Getenv("KB_BRIDGE_INSTANCE")
+	instance := os.Getenv("HOK_BRIDGE_INSTANCE")
 	if instance == "" {
 		instance, _ = os.Hostname()
 	}
-	name := need("KB_SERVICE")
+	name := need("HOK_SERVICE")
 	var spec *apispec.Service
 	if name != "" {
-		if dir := os.Getenv("KB_SPEC_DIR"); dir != "" {
+		if dir := os.Getenv("HOK_SPEC_DIR"); dir != "" {
 			spec, err = apispec.LoadFile(name, filepath.Join(dir, name+".openapi.yaml"))
 		} else if data, ok := embeddedSpecs[name]; ok {
 			spec, err = apispec.Load(name, data)
 		} else {
-			err = fmt.Errorf("no embedded spec for %q; set KB_SPEC_DIR", name)
+			err = fmt.Errorf("no embedded spec for %q; set HOK_SPEC_DIR", name)
 		}
 		errs = append(errs, err)
 	}
 	var creds apispec.Credentials
 	if name != "" {
-		creds, err = apispec.ParseCredentials(name, os.Getenv("KB_UPSTREAM_CREDENTIALS"))
+		creds, err = apispec.ParseCredentials(name, os.Getenv("HOK_UPSTREAM_CREDENTIALS"))
 		errs = append(errs, err)
 	}
 	return bridge.Config{
@@ -114,11 +114,11 @@ func config(logger *slog.Logger) (bridge.Config, error) {
 		Keys:                 keys,
 		Signer:               signer,
 		Credentials:          creds,
-		Upstream:             need("KB_UPSTREAM"),
+		Upstream:             need("HOK_UPSTREAM"),
 		Instance:             instance,
-		UpstreamTimeout:      dur("KB_UPSTREAM_TIMEOUT", 15*time.Second),
-		IdempotencyRetention: dur("KB_IDEMPOTENCY_RETENTION", 24*time.Hour),
-		SessionTimeout:       dur("KB_SESSION_TIMEOUT", 10*time.Second),
+		UpstreamTimeout:      dur("HOK_UPSTREAM_TIMEOUT", 15*time.Second),
+		IdempotencyRetention: dur("HOK_IDEMPOTENCY_RETENTION", 24*time.Hour),
+		SessionTimeout:       dur("HOK_SESSION_TIMEOUT", 10*time.Second),
 		Log:                  logger,
 	}, errors.Join(errs...)
 }

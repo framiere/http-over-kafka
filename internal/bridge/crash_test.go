@@ -13,10 +13,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sderosiaux/kafka-backbone-for-http/api"
-	"github.com/sderosiaux/kafka-backbone-for-http/internal/demo/orders"
-	"github.com/sderosiaux/kafka-backbone-for-http/internal/kafkatest"
-	"github.com/sderosiaux/kafka-backbone-for-http/internal/wire"
+	"github.com/sderosiaux/http-over-kafka/api"
+	"github.com/sderosiaux/http-over-kafka/internal/demo/orders"
+	"github.com/sderosiaux/http-over-kafka/internal/kafkatest"
+	"github.com/sderosiaux/http-over-kafka/internal/wire"
 )
 
 // A bridge process is SIGKILLed at each point of the processing of a charge,
@@ -247,7 +247,7 @@ func TestCommitFailureWhileOwnerKeepsRealOutcome(t *testing.T) {
 			intrude := func(string) {
 				once.Do(func() {
 					// Same transactional id as the bridge's producer for p.
-					cl := kafkatest.Client(t, kgo.TransactionalID(fmt.Sprintf("kb-bridge.%s.%d", e.service, p)),
+					cl := kafkatest.Client(t, kgo.TransactionalID(fmt.Sprintf("hok-bridge.%s.%d", e.service, p)),
 						kgo.RecordPartitioner(kgo.ManualPartitioner()))
 					if err := cl.BeginTransaction(); err != nil {
 						t.Error(err)
@@ -297,7 +297,7 @@ func TestKilledUnderConcurrentLoad(t *testing.T) {
 	pay, srv := paymentsB(t)
 	pay.SetDelay(50 * time.Millisecond)
 	e := newEnv(t, "crash", api.Payments, srv.URL)
-	t.Setenv("KB_MAX_INFLIGHT", "4") // so that some are done, some in flight, some pending
+	t.Setenv("HOK_MAX_INFLIGHT", "4") // so that some are done, some in flight, some pending
 	p := e.proc("payments", "", 0)
 
 	const n = 120

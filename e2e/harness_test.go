@@ -32,14 +32,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sderosiaux/kafka-backbone-for-http/internal/devidp"
+	"github.com/sderosiaux/http-over-kafka/internal/devidp"
 	"github.com/twmb/franz-go/pkg/kadm"
 	"github.com/twmb/franz-go/pkg/kgo"
 )
 
 var (
 	brokers        = envOr("E2E_KAFKA", "localhost:19092")
-	kafkaContainer = envOr("E2E_KAFKA_CONTAINER", "kb-e2e-kafka")
+	kafkaContainer = envOr("E2E_KAFKA_CONTAINER", "hok-e2e-kafka")
 	repoRoot       string
 	binDir         string
 	devEnv         map[string]string // deploy/*.env merged
@@ -55,7 +55,7 @@ func envOr(k, def string) string {
 // lockPath serializes every e2e run on this machine: tests pause, kill and
 // restart the shared broker, so two concurrent runs would produce each
 // other's failures. The lock is held until the process exits.
-var lockPath = envOr("E2E_LOCK", "/tmp/kb-e2e.lock") // fixed path: TMPDIR differs between shells
+var lockPath = envOr("E2E_LOCK", "/tmp/hok-e2e.lock") // fixed path: TMPDIR differs between shells
 
 func TestMain(m *testing.M) {
 	lf, err := os.OpenFile(lockPath, os.O_CREATE|os.O_RDWR, 0o644)
@@ -70,7 +70,7 @@ func TestMain(m *testing.M) {
 	}
 	wd, _ := os.Getwd()
 	repoRoot = filepath.Dir(wd)
-	dir, err := os.MkdirTemp("", "kb-e2e-bin")
+	dir, err := os.MkdirTemp("", "hok-e2e-bin")
 	if err != nil {
 		panic(err)
 	}
@@ -88,7 +88,7 @@ func TestMain(m *testing.M) {
 	for _, f := range envFiles {
 		readEnvFile(f, devEnv)
 	}
-	for _, k := range []string{"KB_GATEWAY_SIGNING_KEY", "KB_TRUSTED_GATEWAY_KEYS", "KB_BRIDGE_SIGNING_KEY", "KB_TRUSTED_BRIDGE_KEYS", "KB_JWT_KEYS", "KB_DEV_IDP_KEY"} {
+	for _, k := range []string{"HOK_GATEWAY_SIGNING_KEY", "HOK_TRUSTED_GATEWAY_KEYS", "HOK_BRIDGE_SIGNING_KEY", "HOK_TRUSTED_BRIDGE_KEYS", "HOK_JWT_KEYS", "HOK_DEV_IDP_KEY"} {
 		if devEnv[k] == "" {
 			fmt.Fprintf(os.Stderr, "e2e: %s not found in deploy/*.env\n", k)
 			os.Exit(2)
@@ -425,18 +425,18 @@ func newGatewayEnv(t *testing.T, specDir string, timeout time.Duration, extra ma
 	port, admin := freePort(t), freePort(t)
 	inst := randName("gw-")
 	env := map[string]string{
-		"KAFKA_BROKERS":          brokers,
-		"KB_GATEWAY_INSTANCE":    inst,
-		"KB_GATEWAY_SIGNING_KEY": devEnv["KB_GATEWAY_SIGNING_KEY"],
-		"KB_TRUSTED_BRIDGE_KEYS": devEnv["KB_TRUSTED_BRIDGE_KEYS"],
-		"KB_JWT_ISSUER":          devEnv["KB_JWT_ISSUER"],
-		"KB_JWT_AUDIENCE":        devEnv["KB_JWT_AUDIENCE"],
-		"KB_JWT_KEYS":            devEnv["KB_JWT_KEYS"],
-		"KB_SERVICES":            strings.Join(entries, ","),
-		"KB_SPEC_DIR":            specDir,
-		"KB_REQUEST_TIMEOUT":     timeout.String(),
-		"ADDR":                   fmt.Sprintf("127.0.0.1:%d", port),
-		"KB_ADMIN_ADDR":          fmt.Sprintf("127.0.0.1:%d", admin),
+		"KAFKA_BROKERS":           brokers,
+		"HOK_GATEWAY_INSTANCE":    inst,
+		"HOK_GATEWAY_SIGNING_KEY": devEnv["HOK_GATEWAY_SIGNING_KEY"],
+		"HOK_TRUSTED_BRIDGE_KEYS": devEnv["HOK_TRUSTED_BRIDGE_KEYS"],
+		"HOK_JWT_ISSUER":          devEnv["HOK_JWT_ISSUER"],
+		"HOK_JWT_AUDIENCE":        devEnv["HOK_JWT_AUDIENCE"],
+		"HOK_JWT_KEYS":            devEnv["HOK_JWT_KEYS"],
+		"HOK_SERVICES":            strings.Join(entries, ","),
+		"HOK_SPEC_DIR":            specDir,
+		"HOK_REQUEST_TIMEOUT":     timeout.String(),
+		"ADDR":                    fmt.Sprintf("127.0.0.1:%d", port),
+		"HOK_ADMIN_ADDR":          fmt.Sprintf("127.0.0.1:%d", admin),
 	}
 	for k, v := range extra {
 		env[k] = v
@@ -466,13 +466,13 @@ func newBridge(t *testing.T, specDir string, s *svc, instance string) *proc {
 func newBridgeEnv(t *testing.T, specDir string, s *svc, instance string, extra map[string]string) *proc {
 	t.Helper()
 	env := map[string]string{
-		"KAFKA_BROKERS":           brokers,
-		"KB_TRUSTED_GATEWAY_KEYS": devEnv["KB_TRUSTED_GATEWAY_KEYS"],
-		"KB_BRIDGE_SIGNING_KEY":   devEnv["KB_BRIDGE_SIGNING_KEY"],
-		"KB_SERVICE":              s.name,
-		"KB_UPSTREAM":             s.url,
-		"KB_SPEC_DIR":             specDir,
-		"KB_BRIDGE_INSTANCE":      instance,
+		"KAFKA_BROKERS":            brokers,
+		"HOK_TRUSTED_GATEWAY_KEYS": devEnv["HOK_TRUSTED_GATEWAY_KEYS"],
+		"HOK_BRIDGE_SIGNING_KEY":   devEnv["HOK_BRIDGE_SIGNING_KEY"],
+		"HOK_SERVICE":              s.name,
+		"HOK_UPSTREAM":             s.url,
+		"HOK_SPEC_DIR":             specDir,
+		"HOK_BRIDGE_INSTANCE":      instance,
 	}
 	for k, v := range extra {
 		env[k] = v
@@ -480,7 +480,7 @@ func newBridgeEnv(t *testing.T, specDir string, s *svc, instance string, extra m
 	return newProc(t, "bridge-"+instance, "bridge", env)
 }
 
-const partitions = 6 // KB_PARTITIONS default, used by every binary
+const partitions = 6 // HOK_PARTITIONS default, used by every binary
 
 // startBridgeReady starts b and waits until it owns and restored all
 // partitions (only valid when it is the only bridge of its service).
@@ -515,11 +515,11 @@ func unpauseKafka(t *testing.T) { docker(t, "unpause", kafkaContainer) }
 
 func newDeriver(t *testing.T, specDir string, s *svc, instance string) *proc {
 	return newProc(t, "deriver-"+instance, "deriver", map[string]string{
-		"KAFKA_BROKERS":          brokers,
-		"KB_SERVICE":             s.name,
-		"KB_SPEC_DIR":            specDir,
-		"KB_DERIVER_INSTANCE":    instance,
-		"KB_TRUSTED_BRIDGE_KEYS": devEnv["KB_TRUSTED_BRIDGE_KEYS"],
+		"KAFKA_BROKERS":           brokers,
+		"HOK_SERVICE":             s.name,
+		"HOK_SPEC_DIR":            specDir,
+		"HOK_DERIVER_INSTANCE":    instance,
+		"HOK_TRUSTED_BRIDGE_KEYS": devEnv["HOK_TRUSTED_BRIDGE_KEYS"],
 	})
 }
 
@@ -533,14 +533,14 @@ type caller struct {
 
 func newCaller(t *testing.T, app string) *caller {
 	t.Helper()
-	kid, b64, _ := strings.Cut(devEnv["KB_DEV_IDP_KEY"], ":")
+	kid, b64, _ := strings.Cut(devEnv["HOK_DEV_IDP_KEY"], ":")
 	seed, err := base64.StdEncoding.DecodeString(b64)
 	if err != nil {
 		t.Fatal(err)
 	}
 	tok, err := devidp.Token{
 		KeyID: kid, Key: ed25519.NewKeyFromSeed(seed),
-		Issuer: devEnv["KB_JWT_ISSUER"], Audience: devEnv["KB_JWT_AUDIENCE"],
+		Issuer: devEnv["HOK_JWT_ISSUER"], Audience: devEnv["HOK_JWT_AUDIENCE"],
 		Application: app, Instance: app + "-1", IssuedAt: time.Now(), TTL: 2 * time.Hour,
 	}.Sign()
 	if err != nil {

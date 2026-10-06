@@ -35,7 +35,7 @@ func main() {
 	n := flag.Int("n", 1000, "samples per target")
 	c := flag.Int("c", 1, "concurrent workers")
 	warmup := flag.Int("warmup", 100, "unmeasured requests per target first")
-	token := flag.String("token", os.Getenv("KB_TOKEN"), "bearer token (default: go run ./cmd/devtoken)")
+	token := flag.String("token", os.Getenv("HOK_TOKEN"), "bearer token (default: go run ./cmd/devtoken)")
 	flag.Parse()
 
 	if *token == "" {

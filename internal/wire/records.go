@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/sderosiaux/kafka-backbone-for-http/internal/identity"
+	"github.com/sderosiaux/http-over-kafka/internal/identity"
 	"github.com/twmb/franz-go/pkg/kgo"
 )
 
@@ -18,9 +18,9 @@ import (
 // problem, and the value stays a plain JSON document that audit consumers
 // read without our code.
 const (
-	HeaderType  = "kb-type"
-	HeaderKeyID = "kb-kid"
-	HeaderSig   = "kb-sig"
+	HeaderType  = "hok-type"
+	HeaderKeyID = "hok-kid"
+	HeaderSig   = "hok-sig"
 
 	TypeCommand  = "command.v1"
 	TypeResponse = "response.v1"
@@ -28,9 +28,9 @@ const (
 
 	// Signature domains: a signature made for one record type never verifies
 	// as another, even under the same key.
-	SignDomainCommand  = "kafka-backbone/command/v1"
-	SignDomainResponse = "kafka-backbone/response/v1"
-	SignDomainResult   = "kafka-backbone/result/v1"
+	SignDomainCommand  = "http-over-kafka/command/v1"
+	SignDomainResponse = "http-over-kafka/response/v1"
+	SignDomainResult   = "http-over-kafka/result/v1"
 )
 
 // signing maps a record type to its signature domain and the only role

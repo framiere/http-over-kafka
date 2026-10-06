@@ -18,14 +18,14 @@ import (
 	"strings"
 	"time"
 
-	"github.com/sderosiaux/kafka-backbone-for-http/internal/devidp"
+	"github.com/sderosiaux/http-over-kafka/internal/devidp"
 )
 
 func main() {
 	app := flag.String("app", "checkout", "calling application (sub)")
 	instance := flag.String("instance", "", "calling instance (default <app>-1)")
 	ttl := flag.Duration("ttl", time.Hour, "token lifetime")
-	envFile := flag.String("env", "deploy/dev-idp.env", "env file with KB_DEV_IDP_KEY, KB_JWT_ISSUER, KB_JWT_AUDIENCE")
+	envFile := flag.String("env", "deploy/dev-idp.env", "env file with HOK_DEV_IDP_KEY, HOK_JWT_ISSUER, HOK_JWT_AUDIENCE")
 	flag.Parse()
 	if *instance == "" {
 		*instance = *app + "-1"
@@ -34,14 +34,14 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	kid, b64, ok := strings.Cut(env("KB_DEV_IDP_KEY"), ":")
+	kid, b64, ok := strings.Cut(env("HOK_DEV_IDP_KEY"), ":")
 	seed, err := base64.StdEncoding.DecodeString(b64)
 	if !ok || err != nil || len(seed) != ed25519.SeedSize {
-		log.Fatal("KB_DEV_IDP_KEY must be <kid>:<base64 32-byte seed>")
+		log.Fatal("HOK_DEV_IDP_KEY must be <kid>:<base64 32-byte seed>")
 	}
 	tok, err := devidp.Token{
 		KeyID: kid, Key: ed25519.NewKeyFromSeed(seed),
-		Issuer: env("KB_JWT_ISSUER"), Audience: env("KB_JWT_AUDIENCE"),
+		Issuer: env("HOK_JWT_ISSUER"), Audience: env("HOK_JWT_AUDIENCE"),
 		Application: *app, Instance: *instance,
 		IssuedAt: time.Now(), TTL: *ttl,
 	}.Sign()

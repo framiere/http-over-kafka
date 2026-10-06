@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sderosiaux/kafka-backbone-for-http/internal/identity"
+	"github.com/sderosiaux/http-over-kafka/internal/identity"
 	"github.com/twmb/franz-go/pkg/kadm"
 )
 
@@ -317,15 +317,15 @@ func TestBlind_OnePartitionPurged(t *testing.T) {
 	}
 }
 
-// Signing key rotation (old key dropped from KB_TRUSTED_KEYS), later followed
+// Signing key rotation (old key dropped from HOK_TRUSTED_KEYS), later followed
 // by the prescribed reset, within the idempotency window.
 func TestReset_AfterKeyRotation(t *testing.T) {
 	spec := t.TempDir()
 	pay := startPayments(t, spec, 0)
 	sign1, trust1, _ := identity.Generate("rot-1")
 	sign2, trust2, _ := identity.Generate("rot-2")
-	g := newGatewayEnv(t, spec, 2*time.Second, map[string]string{"KB_GATEWAY_SIGNING_KEY": sign1}, pay).startReady(t)
-	b := newBridgeEnv(t, spec, pay, "b1", map[string]string{"KB_TRUSTED_GATEWAY_KEYS": trust1})
+	g := newGatewayEnv(t, spec, 2*time.Second, map[string]string{"HOK_GATEWAY_SIGNING_KEY": sign1}, pay).startReady(t)
+	b := newBridgeEnv(t, spec, pay, "b1", map[string]string{"HOK_TRUSTED_GATEWAY_KEYS": trust1})
 	startBridgeReady(t, b)
 	a := newCaller(t, "checkout")
 	var accts []string
@@ -339,10 +339,10 @@ func TestReset_AfterKeyRotation(t *testing.T) {
 	// Rotation: gateway signs with key 2, bridges trust key 2 only.
 	g.kill()
 	b.term(30 * time.Second)
-	g2 := newGatewayEnv(t, spec, 2*time.Second, map[string]string{"KB_GATEWAY_SIGNING_KEY": sign2}, pay)
+	g2 := newGatewayEnv(t, spec, 2*time.Second, map[string]string{"HOK_GATEWAY_SIGNING_KEY": sign2}, pay)
 	g2.instance = g.instance
 	g2.startReady(t)
-	b2 := newBridgeEnv(t, spec, pay, "b1r", map[string]string{"KB_TRUSTED_GATEWAY_KEYS": trust2})
+	b2 := newBridgeEnv(t, spec, pay, "b1r", map[string]string{"HOK_TRUSTED_GATEWAY_KEYS": trust2})
 	startBridgeReady(t, b2)
 	before := map[string]int{}
 	for _, acct := range accts[:6] {

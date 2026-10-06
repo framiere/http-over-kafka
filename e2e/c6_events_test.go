@@ -8,7 +8,6 @@ import (
 	"sync"
 	"testing"
 	"time"
-
 )
 
 type eventView struct {
@@ -207,4 +206,3 @@ func TestC6_UnknownOutcomeMeansNoEvent(t *testing.T) {
 	}
 	t.Logf("caller: %d %s; B debits for the account: %d; ChargeCreated events for it: %d", got.status, got.problemType(), debits(t, pay, acct), forAcct)
 }
-

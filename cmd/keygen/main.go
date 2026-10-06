@@ -9,7 +9,7 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/sderosiaux/kafka-backbone-for-http/internal/identity"
+	"github.com/sderosiaux/http-over-kafka/internal/identity"
 )
 
 func main() {

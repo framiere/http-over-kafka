@@ -34,12 +34,12 @@ func (r Role) valid() error {
 }
 
 // SigningKeyEnv names the private key of role, "<kid>:<base64 32-byte seed>",
-// e.g. KB_GATEWAY_SIGNING_KEY. Only processes of that role may have it.
-func SigningKeyEnv(r Role) string { return "KB_" + strings.ToUpper(string(r)) + "_SIGNING_KEY" }
+// e.g. HOK_GATEWAY_SIGNING_KEY. Only processes of that role may have it.
+func SigningKeyEnv(r Role) string { return "HOK_" + strings.ToUpper(string(r)) + "_SIGNING_KEY" }
 
 // TrustedKeysEnv names the public keys of role,
-// "<kid>:<base64>,<kid>:<base64>", e.g. KB_TRUSTED_BRIDGE_KEYS.
-func TrustedKeysEnv(r Role) string { return "KB_TRUSTED_" + strings.ToUpper(string(r)) + "_KEYS" }
+// "<kid>:<base64>,<kid>:<base64>", e.g. HOK_TRUSTED_BRIDGE_KEYS.
+func TrustedKeysEnv(r Role) string { return "HOK_TRUSTED_" + strings.ToUpper(string(r)) + "_KEYS" }
 
 var ErrBadSignature = errors.New("identity: bad signature")
 

@@ -7,8 +7,8 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/sderosiaux/kafka-backbone-for-http/internal/kafkaenv"
-	"github.com/sderosiaux/kafka-backbone-for-http/internal/wire"
+	"github.com/sderosiaux/http-over-kafka/internal/kafkaenv"
+	"github.com/sderosiaux/http-over-kafka/internal/wire"
 	"github.com/twmb/franz-go/pkg/kadm"
 	"github.com/twmb/franz-go/pkg/kgo"
 )

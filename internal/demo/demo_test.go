@@ -11,9 +11,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sderosiaux/kafka-backbone-for-http/internal/demo/orders"
-	"github.com/sderosiaux/kafka-backbone-for-http/internal/demo/payments"
-	"github.com/sderosiaux/kafka-backbone-for-http/internal/kafkatest"
+	"github.com/sderosiaux/http-over-kafka/internal/demo/orders"
+	"github.com/sderosiaux/http-over-kafka/internal/demo/payments"
+	"github.com/sderosiaux/http-over-kafka/internal/kafkatest"
 )
 
 func do(t *testing.T, method, url, contentType, body string) (*http.Response, string) {
@@ -129,7 +129,7 @@ func TestDemoServicesKnowNothingOfTheSystem(t *testing.T) {
 	if err != nil {
 		t.Fatalf("go list: %v\n%s", err, out)
 	}
-	const module = "github.com/sderosiaux/kafka-backbone-for-http/"
+	const module = "github.com/sderosiaux/http-over-kafka/"
 	for _, dep := range strings.Fields(string(out)) {
 		rel, ours := strings.CutPrefix(dep, module)
 		bad := (ours && !strings.HasPrefix(rel, "internal/demo/") && !strings.HasPrefix(rel, "cmd/")) ||

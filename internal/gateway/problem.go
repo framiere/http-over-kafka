@@ -4,20 +4,20 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/sderosiaux/kafka-backbone-for-http/internal/wire"
+	"github.com/sderosiaux/http-over-kafka/internal/wire"
 )
 
 // Problem types the gateway itself answers with. Like the bridge faults they
 // are RFC 9457 bodies carrying the requestId, so a caller parses one format
 // whichever component refused the request.
 const (
-	ProblemUnauthorized         = "urn:kafka-backbone:unauthorized"
-	ProblemUnknownService       = "urn:kafka-backbone:unknown_service"
-	ProblemNoOperation          = "urn:kafka-backbone:no_operation"
-	ProblemMethodNotAllowed     = "urn:kafka-backbone:method_not_allowed"
-	ProblemPayloadTooLarge      = "urn:kafka-backbone:payload_too_large"
-	ProblemInvalidRequest       = "urn:kafka-backbone:invalid_request"
-	ProblemTransportUnavailable = "urn:kafka-backbone:transport_unavailable"
+	ProblemUnauthorized         = "urn:http-over-kafka:unauthorized"
+	ProblemUnknownService       = "urn:http-over-kafka:unknown_service"
+	ProblemNoOperation          = "urn:http-over-kafka:no_operation"
+	ProblemMethodNotAllowed     = "urn:http-over-kafka:method_not_allowed"
+	ProblemPayloadTooLarge      = "urn:http-over-kafka:payload_too_large"
+	ProblemInvalidRequest       = "urn:http-over-kafka:invalid_request"
+	ProblemTransportUnavailable = "urn:http-over-kafka:transport_unavailable"
 )
 
 // ProblemUpstreamUnavailable is a GET passthrough that could not reach B. It

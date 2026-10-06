@@ -3,19 +3,19 @@
 // Environment:
 //
 //	KAFKA_BROKERS        broker list
-//	KB_GATEWAY_INSTANCE  stable instance id, names the reply topic (D11)
-//	KB_GATEWAY_SIGNING_KEY  command signing key (cmd/keygen)
-//	KB_TRUSTED_BRIDGE_KEYS  bridge public keys, to authenticate responses (D10)
-//	KB_SERVICES          name=upstreamURL,...  e.g. orders=http://orders:8081
-//	KB_UPSTREAM_CREDENTIALS  service.scheme=value,...  B's own credential for
+//	HOK_GATEWAY_INSTANCE  stable instance id, names the reply topic (D11)
+//	HOK_GATEWAY_SIGNING_KEY  command signing key (cmd/keygen)
+//	HOK_TRUSTED_BRIDGE_KEYS  bridge public keys, to authenticate responses (D10)
+//	HOK_SERVICES          name=upstreamURL,...  e.g. orders=http://orders:8081
+//	HOK_UPSTREAM_CREDENTIALS  service.scheme=value,...  B's own credential for
 //	                     passthrough operations whose contract requires one (D12)
-//	KB_SPEC_DIR          optional: <dir>/<name>.openapi.yaml; else the embedded demo specs
-//	KB_JWT_ISSUER, KB_JWT_AUDIENCE, KB_JWT_KEYS (kid:base64 Ed25519 public key,...)
-//	KB_REQUEST_TIMEOUT   caller wait before 504 (default 10s)
-//	KB_COMMAND_TTL       how long a command may still run after issue (default 5m)
-//	KB_PARTITIONS        partitions of service topics it creates (default 6)
+//	HOK_SPEC_DIR          optional: <dir>/<name>.openapi.yaml; else the embedded demo specs
+//	HOK_JWT_ISSUER, HOK_JWT_AUDIENCE, HOK_JWT_KEYS (kid:base64 Ed25519 public key,...)
+//	HOK_REQUEST_TIMEOUT   caller wait before 504 (default 10s)
+//	HOK_COMMAND_TTL       how long a command may still run after issue (default 5m)
+//	HOK_PARTITIONS        partitions of service topics it creates (default 6)
 //	ADDR                 HTTP listen address (default :8080)
-//	KB_ADMIN_ADDR        /healthz and /readyz (default :9080)
+//	HOK_ADMIN_ADDR        /healthz and /readyz (default :9080)
 //
 // A request is routed by Host: "orders", "orders:8080" and "orders.internal"
 // all reach service orders.
@@ -37,11 +37,11 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/sderosiaux/kafka-backbone-for-http/api"
-	"github.com/sderosiaux/kafka-backbone-for-http/internal/apispec"
-	"github.com/sderosiaux/kafka-backbone-for-http/internal/gateway"
-	"github.com/sderosiaux/kafka-backbone-for-http/internal/identity"
-	"github.com/sderosiaux/kafka-backbone-for-http/internal/kafkaenv"
+	"github.com/sderosiaux/http-over-kafka/api"
+	"github.com/sderosiaux/http-over-kafka/internal/apispec"
+	"github.com/sderosiaux/http-over-kafka/internal/gateway"
+	"github.com/sderosiaux/http-over-kafka/internal/identity"
+	"github.com/sderosiaux/http-over-kafka/internal/kafkaenv"
 )
 
 var embeddedSpecs = map[string][]byte{"orders": api.Orders, "payments": api.Payments}
@@ -78,7 +78,7 @@ func run() error {
 		WriteTimeout:      cfg.Timeout + 30*time.Second,
 		IdleTimeout:       2 * time.Minute,
 	}
-	admin := &http.Server{Addr: envOr("KB_ADMIN_ADDR", ":9080"), Handler: adminHandler(g), ReadHeaderTimeout: 5 * time.Second}
+	admin := &http.Server{Addr: envOr("HOK_ADMIN_ADDR", ":9080"), Handler: adminHandler(g), ReadHeaderTimeout: 5 * time.Second}
 	srvErr := make(chan error, 2)
 	go func() { srvErr <- srv.ListenAndServe() }()
 	go func() { srvErr <- admin.ListenAndServe() }()
@@ -141,26 +141,26 @@ func config(logger *slog.Logger) (gateway.Config, error) {
 	bridgeKeys, err := identity.TrustedKeysFromEnv(identity.RoleBridge)
 	errs = append(errs, err)
 	var keys identity.Keyring
-	if v := need("KB_JWT_KEYS"); v != "" {
+	if v := need("HOK_JWT_KEYS"); v != "" {
 		keys, err = identity.ParseKeyring(v)
 		errs = append(errs, err)
 	}
-	partitions, err := strconv.ParseInt(envOr("KB_PARTITIONS", "6"), 10, 32)
+	partitions, err := strconv.ParseInt(envOr("HOK_PARTITIONS", "6"), 10, 32)
 	errs = append(errs, err)
 	cfg := gateway.Config{
-		Instance: need("KB_GATEWAY_INSTANCE"),
+		Instance: need("HOK_GATEWAY_INSTANCE"),
 		Auth: &gateway.Authenticator{
-			Keys: keys, Issuer: need("KB_JWT_ISSUER"), Audience: need("KB_JWT_AUDIENCE"), Leeway: 30 * time.Second,
+			Keys: keys, Issuer: need("HOK_JWT_ISSUER"), Audience: need("HOK_JWT_AUDIENCE"), Leeway: 30 * time.Second,
 		},
 		Signer:     signer,
 		BridgeKeys: bridgeKeys,
 		Brokers:    brokers,
-		Timeout:    dur("KB_REQUEST_TIMEOUT", 10*time.Second),
-		CommandTTL: dur("KB_COMMAND_TTL", 5*time.Minute),
+		Timeout:    dur("HOK_REQUEST_TIMEOUT", 10*time.Second),
+		CommandTTL: dur("HOK_COMMAND_TTL", 5*time.Minute),
 		Partitions: int32(partitions),
 		Logger:     logger,
 	}
-	for entry := range strings.SplitSeq(need("KB_SERVICES"), ",") {
+	for entry := range strings.SplitSeq(need("HOK_SERVICES"), ",") {
 		if entry == "" {
 			continue
 		}
@@ -169,7 +169,7 @@ func config(logger *slog.Logger) (gateway.Config, error) {
 			errs = append(errs, err)
 			continue
 		}
-		svc.Credentials, err = apispec.ParseCredentials(svc.Spec.Name(), os.Getenv("KB_UPSTREAM_CREDENTIALS"))
+		svc.Credentials, err = apispec.ParseCredentials(svc.Spec.Name(), os.Getenv("HOK_UPSTREAM_CREDENTIALS"))
 		errs = append(errs, err)
 		cfg.Services = append(cfg.Services, svc)
 	}
@@ -179,19 +179,19 @@ func config(logger *slog.Logger) (gateway.Config, error) {
 func service(entry string) (gateway.Service, error) {
 	name, upstream, ok := strings.Cut(entry, "=")
 	if !ok {
-		return gateway.Service{}, fmt.Errorf("KB_SERVICES entry %q: want name=url", entry)
+		return gateway.Service{}, fmt.Errorf("HOK_SERVICES entry %q: want name=url", entry)
 	}
 	u, err := url.Parse(upstream)
 	if err != nil {
-		return gateway.Service{}, fmt.Errorf("KB_SERVICES %s: %w", name, err)
+		return gateway.Service{}, fmt.Errorf("HOK_SERVICES %s: %w", name, err)
 	}
 	var spec *apispec.Service
-	if dir := os.Getenv("KB_SPEC_DIR"); dir != "" {
+	if dir := os.Getenv("HOK_SPEC_DIR"); dir != "" {
 		spec, err = apispec.LoadFile(name, filepath.Join(dir, name+".openapi.yaml"))
 	} else if data, ok := embeddedSpecs[name]; ok {
 		spec, err = apispec.Load(name, data)
 	} else {
-		err = fmt.Errorf("no embedded spec for %q; set KB_SPEC_DIR", name)
+		err = fmt.Errorf("no embedded spec for %q; set HOK_SPEC_DIR", name)
 	}
 	if err != nil {
 		return gateway.Service{}, err

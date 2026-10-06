@@ -186,17 +186,17 @@ func TestC4_ForgedCommandsRejected(t *testing.T) {
 	attacks["altered body+caller, original signature"] = alt
 	// 2. Signature removed.
 	uns := retarget(plain)
-	dropHeader(uns, "kb-sig")
+	dropHeader(uns, "hok-sig")
 	attacks["unsigned"] = uns
 	// 3. Signed with the attacker's own key under the trusted kid.
 	_, priv, _ := ed25519.GenerateKey(rand.Reader)
 	own := retarget(plain)
-	msg := append([]byte("kafka-backbone/command/v1\x00"), own.Value...) // identity.signedBytes layout
-	setHeader(own, "kb-sig", base64.StdEncoding.EncodeToString(ed25519.Sign(priv, msg)))
+	msg := append([]byte("http-over-kafka/command/v1\x00"), own.Value...) // identity.signedBytes layout
+	setHeader(own, "hok-sig", base64.StdEncoding.EncodeToString(ed25519.Sign(priv, msg)))
 	attacks["signed by attacker key, trusted kid"] = own
 	// 4. Unknown kid.
 	kid := retarget(plain)
-	setHeader(kid, "kb-kid", "attacker-1")
+	setHeader(kid, "hok-kid", "attacker-1")
 	attacks["unknown kid"] = kid
 	// 5. A genuine command copied to another partition (a second consumer
 	// would own it and run it in parallel with the original's retries).
@@ -224,4 +224,3 @@ func TestC4_ForgedCommandsRejected(t *testing.T) {
 	}
 	t.Logf("rejected: exact replay of 2 genuine signed commands (dedup by requestId)")
 }
-

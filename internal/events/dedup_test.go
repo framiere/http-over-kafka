@@ -7,9 +7,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sderosiaux/kafka-backbone-for-http/internal/events"
-	"github.com/sderosiaux/kafka-backbone-for-http/internal/kafkatest"
-	"github.com/sderosiaux/kafka-backbone-for-http/internal/wire"
+	"github.com/sderosiaux/http-over-kafka/internal/events"
+	"github.com/sderosiaux/http-over-kafka/internal/kafkatest"
+	"github.com/sderosiaux/http-over-kafka/internal/wire"
 	"github.com/twmb/franz-go/pkg/kgo"
 )
 

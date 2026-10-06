@@ -7,7 +7,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/sderosiaux/kafka-backbone-for-http/internal/demo/orders"
+	"github.com/sderosiaux/http-over-kafka/internal/demo/orders"
 )
 
 func main() {

@@ -6,9 +6,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/sderosiaux/kafka-backbone-for-http/api"
-	"github.com/sderosiaux/kafka-backbone-for-http/internal/apispec"
-	"github.com/sderosiaux/kafka-backbone-for-http/internal/wire"
+	"github.com/sderosiaux/http-over-kafka/api"
+	"github.com/sderosiaux/http-over-kafka/internal/apispec"
+	"github.com/sderosiaux/http-over-kafka/internal/wire"
 )
 
 func mustLoad(t *testing.T, name string, data []byte) *apispec.Service {

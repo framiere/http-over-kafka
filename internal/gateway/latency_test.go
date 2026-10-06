@@ -11,21 +11,21 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sderosiaux/kafka-backbone-for-http/api"
-	"github.com/sderosiaux/kafka-backbone-for-http/internal/demo/orders"
-	"github.com/sderosiaux/kafka-backbone-for-http/internal/gateway"
-	"github.com/sderosiaux/kafka-backbone-for-http/internal/kafkatest"
+	"github.com/sderosiaux/http-over-kafka/api"
+	"github.com/sderosiaux/http-over-kafka/internal/demo/orders"
+	"github.com/sderosiaux/http-over-kafka/internal/gateway"
+	"github.com/sderosiaux/http-over-kafka/internal/kafkatest"
 )
 
 // TestLatencyBreakdown splits the gateway's added latency with the protocol
 // peer standing in for the bridge (no dedup store, so it is a lower bound of
 // the full system; cmd/latency measures the real stack). Opt-in:
 //
-//	KB_LATENCY=2000 [KB_LATENCY_C=8] go test ./internal/gateway -run LatencyBreakdown -v
+//	HOK_LATENCY=2000 [HOK_LATENCY_C=8] go test ./internal/gateway -run LatencyBreakdown -v
 func TestLatencyBreakdown(t *testing.T) {
 	n := 0
-	if _, err := fmt.Sscan(os.Getenv("KB_LATENCY"), &n); err != nil || n <= 0 {
-		t.Skip("set KB_LATENCY=<samples> to run")
+	if _, err := fmt.Sscan(os.Getenv("HOK_LATENCY"), &n); err != nil || n <= 0 {
+		t.Skip("set HOK_LATENCY=<samples> to run")
 	}
 	name := kafkatest.Service(t, "orders")
 	b := httptest.NewServer(orders.New().Handler())
@@ -69,7 +69,7 @@ func TestLatencyBreakdown(t *testing.T) {
 	produce, total = nil, nil
 	mu.Unlock()
 	workers := 1
-	fmt.Sscan(os.Getenv("KB_LATENCY_C"), &workers)
+	fmt.Sscan(os.Getenv("HOK_LATENCY_C"), &workers)
 	var direct, via []time.Duration
 	var wg sync.WaitGroup
 	for range workers {

@@ -12,8 +12,8 @@ import (
 	"time"
 
 	"github.com/oklog/ulid/v2"
-	"github.com/sderosiaux/kafka-backbone-for-http/internal/identity"
-	"github.com/sderosiaux/kafka-backbone-for-http/internal/wire"
+	"github.com/sderosiaux/http-over-kafka/internal/identity"
+	"github.com/sderosiaux/http-over-kafka/internal/wire"
 	"github.com/twmb/franz-go/pkg/kgo"
 )
 
@@ -89,7 +89,7 @@ func TestC4_ForgedResponseDropped(t *testing.T) {
 			if variant == "unsigned forged 402" {
 				fake := fmt.Sprintf(`{"v":1,"requestId":%q,"status":402,"headers":{"content-type":["application/json"]},"body":{"json":{"forged":true}}}`, cmd.RequestID)
 				forged = &kgo.Record{Topic: cmd.ReplyTo, Partition: 0, Key: []byte(cmd.RequestID), Value: []byte(fake),
-					Headers: []kgo.RecordHeader{{Key: "kb-type", Value: []byte("response.v1")}}}
+					Headers: []kgo.RecordHeader{{Key: "hok-type", Value: []byte("response.v1")}}}
 			} else {
 				forged = clone(genuine)
 				forged.Topic, forged.Partition, forged.Key = cmd.ReplyTo, 0, []byte(cmd.RequestID)
@@ -132,7 +132,7 @@ func failures(t *testing.T, s *svc) []failureView {
 	for _, r := range readTopic(t, "http.event-failures."+s.name, true) {
 		var f failureView
 		_ = json.Unmarshal(r.Value, &f)
-		f.typ = header(r, "kb-type")
+		f.typ = header(r, "hok-type")
 		out = append(out, f)
 	}
 	return out
@@ -207,14 +207,14 @@ func TestC6_ForgedResultsNotDerived(t *testing.T) {
 		forged := clone(genuine)
 		forged.Value = bytes.ReplaceAll(forged.Value, []byte(`"real"`), []byte(`"mallory"`))
 		forged.Value = bytes.ReplaceAll(forged.Value, []byte(realID), []byte(fakeReq))
-		kid, b64, _ := strings.Cut(devEnv["KB_GATEWAY_SIGNING_KEY"], ":")
+		kid, b64, _ := strings.Cut(devEnv["HOK_GATEWAY_SIGNING_KEY"], ":")
 		seed, _ := base64.StdEncoding.DecodeString(b64)
 		s, err := identity.NewSigner(identity.RoleGateway, kid, seed)
 		if err != nil {
 			t.Fatal(err)
 		}
-		setHeader(forged, "kb-kid", kid)
-		setHeader(forged, "kb-sig", base64.StdEncoding.EncodeToString(s.Sign(wire.SignDomainResult, forged.Value)))
+		setHeader(forged, "hok-kid", kid)
+		setHeader(forged, "hok-sig", base64.StdEncoding.EncodeToString(s.Sign(wire.SignDomainResult, forged.Value)))
 		produce(t, forged)
 		eventually(t, 15*time.Second, "not_authentic failure", func() bool {
 			return findFailure(failures(t, ord), "not_authentic", "", "claims requestId "+fakeReq)

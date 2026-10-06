@@ -9,8 +9,8 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
-	"github.com/sderosiaux/kafka-backbone-for-http/internal/identity"
-	"github.com/sderosiaux/kafka-backbone-for-http/internal/wire"
+	"github.com/sderosiaux/http-over-kafka/internal/identity"
+	"github.com/sderosiaux/http-over-kafka/internal/wire"
 )
 
 // Authenticator turns a caller's bearer JWT into the Caller the gateway
@@ -118,7 +118,7 @@ func tokenErrorDetail(err error) string {
 
 func (e *authError) challenge() string {
 	if e.code == "" {
-		return `Bearer realm="kafka-backbone"`
+		return `Bearer realm="http-over-kafka"`
 	}
-	return fmt.Sprintf(`Bearer realm="kafka-backbone", error=%q, error_description=%q`, e.code, e.detail)
+	return fmt.Sprintf(`Bearer realm="http-over-kafka", error=%q, error_description=%q`, e.code, e.detail)
 }

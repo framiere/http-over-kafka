@@ -12,10 +12,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sderosiaux/kafka-backbone-for-http/internal/apispec"
-	"github.com/sderosiaux/kafka-backbone-for-http/internal/events"
-	"github.com/sderosiaux/kafka-backbone-for-http/internal/identity"
-	"github.com/sderosiaux/kafka-backbone-for-http/internal/kafkatest"
+	"github.com/sderosiaux/http-over-kafka/internal/apispec"
+	"github.com/sderosiaux/http-over-kafka/internal/events"
+	"github.com/sderosiaux/http-over-kafka/internal/identity"
+	"github.com/sderosiaux/http-over-kafka/internal/kafkatest"
 	"github.com/twmb/franz-go/pkg/kgo"
 )
 
@@ -139,7 +139,7 @@ func killedMidBatch(t *testing.T, successor string, limit time.Duration) {
 	child := exec.Command(os.Args[0], "-test.run=^$")
 	child.Env = append(os.Environ(),
 		childEnv+"=1",
-		"KB_TEST_CHILD_SERVICE="+f.name,
+		"HOK_TEST_CHILD_SERVICE="+f.name,
 		"KAFKA_BROKERS="+strings.Join(kafkatest.Brokers(t), ","),
 		identity.TrustedKeysEnv(identity.RoleBridge)+"="+f.trusted,
 	)
@@ -197,7 +197,7 @@ func killedMidBatch(t *testing.T, successor string, limit time.Duration) {
 }
 
 const (
-	childEnv   = "KB_TEST_DERIVER_CHILD"
+	childEnv   = "HOK_TEST_DERIVER_CHILD"
 	childReady = "transaction-open"
 )
 
@@ -208,7 +208,7 @@ func childMain() {
 		fmt.Fprintln(os.Stderr, "child:", err)
 		os.Exit(2)
 	}
-	name := os.Getenv("KB_TEST_CHILD_SERVICE")
+	name := os.Getenv("HOK_TEST_CHILD_SERVICE")
 	svc, err := apispec.Load(name, ordersSpec(name))
 	if err != nil {
 		fail(err)

@@ -1,6 +1,6 @@
 // Package devidp mints caller JWTs the way an identity provider would, for
 // local development and tests. Production tokens come from a real IdP; the
-// gateway only ever holds the public half (KB_JWT_KEYS).
+// gateway only ever holds the public half (HOK_JWT_KEYS).
 package devidp
 
 import (

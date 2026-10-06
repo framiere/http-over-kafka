@@ -10,9 +10,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/sderosiaux/kafka-backbone-for-http/internal/apispec"
-	"github.com/sderosiaux/kafka-backbone-for-http/internal/kafkaenv"
-	"github.com/sderosiaux/kafka-backbone-for-http/internal/wire"
+	"github.com/sderosiaux/http-over-kafka/internal/apispec"
+	"github.com/sderosiaux/http-over-kafka/internal/kafkaenv"
+	"github.com/sderosiaux/http-over-kafka/internal/wire"
 	"github.com/twmb/franz-go/pkg/kgo"
 )
 
@@ -382,7 +382,7 @@ func (w *partition) open() (store, error) {
 		return store{}, err
 	}
 	prod, err := kgo.NewClient(kafkaenv.ClientOpts(w.b.cfg.Brokers,
-		kgo.TransactionalID(fmt.Sprintf("kb-bridge.%s.%d", w.b.cfg.Service, w.id)),
+		kgo.TransactionalID(fmt.Sprintf("hok-bridge.%s.%d", w.b.cfg.Service, w.id)),
 		kgo.TransactionTimeout(w.b.cfg.TxnTimeout),
 		kgo.RecordPartitioner(partitioner{kgo.StickyKeyPartitioner(nil)}),
 		kgo.ProducerLinger(0),

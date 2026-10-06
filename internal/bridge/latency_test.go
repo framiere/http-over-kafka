@@ -11,10 +11,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sderosiaux/kafka-backbone-for-http/api"
-	"github.com/sderosiaux/kafka-backbone-for-http/internal/bridge"
-	"github.com/sderosiaux/kafka-backbone-for-http/internal/demo/orders"
-	"github.com/sderosiaux/kafka-backbone-for-http/internal/wire"
+	"github.com/sderosiaux/http-over-kafka/api"
+	"github.com/sderosiaux/http-over-kafka/internal/bridge"
+	"github.com/sderosiaux/http-over-kafka/internal/demo/orders"
+	"github.com/sderosiaux/http-over-kafka/internal/wire"
 )
 
 type percentiles []time.Duration
@@ -32,10 +32,10 @@ func (p percentiles) String() string {
 // TestLatency measures what the provider side adds: produce a signed command
 // → bridge → B → Response read back (read_committed), sequentially, against
 // the same B called directly. It is a measurement, not an assertion. N via
-// KB_LATENCY_N (default 300).
+// HOK_LATENCY_N (default 300).
 func TestLatency(t *testing.T) {
 	n := 300
-	if v, err := strconv.Atoi(os.Getenv("KB_LATENCY_N")); err == nil && v > 0 {
+	if v, err := strconv.Atoi(os.Getenv("HOK_LATENCY_N")); err == nil && v > 0 {
 		n = v
 	}
 	var mu sync.Mutex
@@ -115,10 +115,10 @@ func TestLatency(t *testing.T) {
 		return oe.command(http.MethodPut, "replaceOrder", "/orders/{orderId}", "/orders/"+o.ID, map[string]string{"orderId": o.ID}, body, "")
 	})
 
-	// Concurrency: KB_LATENCY_C callers (default 8), distinct keys spread
+	// Concurrency: HOK_LATENCY_C callers (default 8), distinct keys spread
 	// over the partitions.
 	callers := 8
-	if v, err := strconv.Atoi(os.Getenv("KB_LATENCY_C")); err == nil && v > 0 {
+	if v, err := strconv.Atoi(os.Getenv("HOK_LATENCY_C")); err == nil && v > 0 {
 		callers = v
 	}
 	// Commands of one partition are processed one at a time.

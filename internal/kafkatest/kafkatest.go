@@ -21,7 +21,7 @@ import (
 	"time"
 
 	"github.com/moby/moby/client"
-	"github.com/sderosiaux/kafka-backbone-for-http/internal/kafkaenv"
+	"github.com/sderosiaux/http-over-kafka/internal/kafkaenv"
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/wait"
 	"github.com/twmb/franz-go/pkg/kadm"

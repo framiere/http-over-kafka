@@ -16,14 +16,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sderosiaux/kafka-backbone-for-http/api"
-	"github.com/sderosiaux/kafka-backbone-for-http/internal/apispec"
-	"github.com/sderosiaux/kafka-backbone-for-http/internal/bridge"
-	"github.com/sderosiaux/kafka-backbone-for-http/internal/demo/payments"
-	"github.com/sderosiaux/kafka-backbone-for-http/internal/identity"
-	"github.com/sderosiaux/kafka-backbone-for-http/internal/kafkaenv"
-	"github.com/sderosiaux/kafka-backbone-for-http/internal/kafkatest"
-	"github.com/sderosiaux/kafka-backbone-for-http/internal/wire"
+	"github.com/sderosiaux/http-over-kafka/api"
+	"github.com/sderosiaux/http-over-kafka/internal/apispec"
+	"github.com/sderosiaux/http-over-kafka/internal/bridge"
+	"github.com/sderosiaux/http-over-kafka/internal/demo/payments"
+	"github.com/sderosiaux/http-over-kafka/internal/identity"
+	"github.com/sderosiaux/http-over-kafka/internal/kafkaenv"
+	"github.com/sderosiaux/http-over-kafka/internal/kafkatest"
+	"github.com/sderosiaux/http-over-kafka/internal/wire"
 	"github.com/twmb/franz-go/pkg/kadm"
 	"github.com/twmb/franz-go/pkg/kgo"
 )
@@ -470,7 +470,7 @@ func TestTotalWipeNeverReexecutes(t *testing.T) {
 	stop()
 
 	deleteTopics(t, bridge.StateTopic(e.service), bridge.LayoutTopic(e.service), wire.ResultTopic(e.service))
-	if _, err := kafkatest.Admin(t).DeleteGroup(t.Context(), "kb-bridge."+e.service); err != nil {
+	if _, err := kafkatest.Admin(t).DeleteGroup(t.Context(), "hok-bridge."+e.service); err != nil {
 		t.Fatal(err)
 	}
 	e.mu.Lock()
@@ -565,7 +565,7 @@ func TestMemoryResetNeverReexecutes(t *testing.T) {
 			}
 			deleteTopics(t, c.delete(e)...)
 			if c.group {
-				if _, err := kafkatest.Admin(t).DeleteGroup(t.Context(), "kb-bridge."+e.service); err != nil {
+				if _, err := kafkatest.Admin(t).DeleteGroup(t.Context(), "hok-bridge."+e.service); err != nil {
 					t.Fatal(err)
 				}
 			}
@@ -617,7 +617,7 @@ func TestWipeAfterCommandsDeletedIsBlind(t *testing.T) {
 		t.Fatal(err)
 	}
 	deleteTopics(t, bridge.LayoutTopic(e.service), bridge.StateTopic(e.service), wire.ResultTopic(e.service))
-	if _, err := adm.DeleteGroup(t.Context(), "kb-bridge."+e.service); err != nil {
+	if _, err := adm.DeleteGroup(t.Context(), "hok-bridge."+e.service); err != nil {
 		t.Fatal(err)
 	}
 	e.start(e.config())
@@ -849,9 +849,9 @@ func signedState(e *env, p int32, key string, value []byte) *kgo.Record {
 
 // signStateWith mirrors the bridge's state record signature (state.go).
 func signStateWith(s *identity.Signer, topic string, p int32, key string, value []byte) *kgo.Record {
-	sig := s.Sign("kafka-backbone/bridge-state/v1", []byte(fmt.Sprintf("%s\x00%d\x00%s\x00%s", topic, p, key, value)))
+	sig := s.Sign("http-over-kafka/bridge-state/v1", []byte(fmt.Sprintf("%s\x00%d\x00%s\x00%s", topic, p, key, value)))
 	return &kgo.Record{Topic: topic, Partition: p, Key: []byte(key), Value: value, Headers: []kgo.RecordHeader{
-		{Key: "kb-kid", Value: []byte(s.KeyID())}, {Key: "kb-sig", Value: []byte(base64.StdEncoding.EncodeToString(sig))}}}
+		{Key: "hok-kid", Value: []byte(s.KeyID())}, {Key: "hok-sig", Value: []byte(base64.StdEncoding.EncodeToString(sig))}}}
 }
 
 // The gateway rotates its signing key, then the dedup memory is reset. The

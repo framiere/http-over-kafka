@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/oklog/ulid/v2"
-	"github.com/sderosiaux/kafka-backbone-for-http/internal/demo/demohttp"
+	"github.com/sderosiaux/http-over-kafka/internal/demo/demohttp"
 )
 
 type Item struct {

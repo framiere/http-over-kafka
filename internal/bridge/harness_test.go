@@ -17,14 +17,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sderosiaux/kafka-backbone-for-http/api"
-	"github.com/sderosiaux/kafka-backbone-for-http/internal/apispec"
-	"github.com/sderosiaux/kafka-backbone-for-http/internal/bridge"
-	"github.com/sderosiaux/kafka-backbone-for-http/internal/demo/payments"
-	"github.com/sderosiaux/kafka-backbone-for-http/internal/identity"
-	"github.com/sderosiaux/kafka-backbone-for-http/internal/kafkaenv"
-	"github.com/sderosiaux/kafka-backbone-for-http/internal/kafkatest"
-	"github.com/sderosiaux/kafka-backbone-for-http/internal/wire"
+	"github.com/sderosiaux/http-over-kafka/api"
+	"github.com/sderosiaux/http-over-kafka/internal/apispec"
+	"github.com/sderosiaux/http-over-kafka/internal/bridge"
+	"github.com/sderosiaux/http-over-kafka/internal/demo/payments"
+	"github.com/sderosiaux/http-over-kafka/internal/identity"
+	"github.com/sderosiaux/http-over-kafka/internal/kafkaenv"
+	"github.com/sderosiaux/http-over-kafka/internal/kafkatest"
+	"github.com/sderosiaux/http-over-kafka/internal/wire"
 	"github.com/twmb/franz-go/pkg/kadm"
 	"github.com/twmb/franz-go/pkg/kgo"
 )
@@ -362,10 +362,10 @@ func paymentsB(t *testing.T) (*payments.Service, *httptest.Server) {
 
 // --- subprocess bridge, for real crashes (SIGKILL) and freezes (SIGSTOP) ---
 
-const helperEnv = "KB_BRIDGE_TEST_HELPER"
+const helperEnv = "HOK_BRIDGE_TEST_HELPER"
 
 // TestBridgeProcess is not a test: it is the body of a bridge subprocess
-// started by proc. KB_CRASH_AT names a hook at which the process kills
+// started by proc. HOK_CRASH_AT names a hook at which the process kills
 // itself with SIGKILL the first time it fires: no defers, no flush, no
 // graceful anything.
 func TestBridgeProcess(t *testing.T) {
@@ -380,27 +380,27 @@ func TestBridgeProcess(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	service := os.Getenv("KB_SERVICE")
+	service := os.Getenv("HOK_SERVICE")
 	data := api.Payments
-	if os.Getenv("KB_SPEC") == "orders" {
+	if os.Getenv("HOK_SPEC") == "orders" {
 		data = api.Orders
 	}
 	spec, err := apispec.Load(service, data)
 	if err != nil {
 		t.Fatal(err)
 	}
-	session, err := time.ParseDuration(os.Getenv("KB_SESSION_TIMEOUT"))
+	session, err := time.ParseDuration(os.Getenv("HOK_SESSION_TIMEOUT"))
 	if err != nil || session == 0 {
 		session = 6 * time.Second
 	}
 	die := func(string) {
-		fmt.Fprintln(os.Stderr, "CRASHING at", os.Getenv("KB_CRASH_AT"))
+		fmt.Fprintln(os.Stderr, "CRASHING at", os.Getenv("HOK_CRASH_AT"))
 		_ = syscall.Kill(os.Getpid(), syscall.SIGKILL)
 		select {}
 	}
-	maxInFlight, _ := strconv.Atoi(os.Getenv("KB_MAX_INFLIGHT"))
+	maxInFlight, _ := strconv.Atoi(os.Getenv("HOK_MAX_INFLIGHT"))
 	var hooks bridge.Hooks
-	switch os.Getenv("KB_CRASH_AT") {
+	switch os.Getenv("HOK_CRASH_AT") {
 	case "before-started-commit":
 		hooks.BeforeStartedCommit = die
 	case "after-started":
@@ -414,7 +414,7 @@ func TestBridgeProcess(t *testing.T) {
 	}
 	b, err := bridge.New(bridge.Config{
 		Service: service, Brokers: kafkatest.Brokers(t), Spec: spec, Keys: keys, Signer: signer,
-		Upstream: os.Getenv("KB_UPSTREAM"), Instance: "proc",
+		Upstream: os.Getenv("HOK_UPSTREAM"), Instance: "proc",
 		SessionTimeout: session, Hooks: hooks, MaxInFlight: maxInFlight,
 		Log: slog.New(slog.NewTextHandler(os.Stderr, nil)),
 	})
@@ -466,12 +466,12 @@ func (e *env) proc(spec, crashAt string, session time.Duration) *proc {
 		kafkaenv.BrokersEnv+"="+strings.Join(kafkatest.Brokers(e.t), ","),
 		identity.TrustedKeysEnv(identity.RoleGateway)+"="+e.trusted,
 		identity.SigningKeyEnv(identity.RoleBridge)+"="+e.bridgeSigning,
-		"KB_SERVICE="+e.service,
-		"KB_SPEC="+spec,
-		"KB_UPSTREAM="+e.upstream,
-		"KB_CRASH_AT="+crashAt,
-		"KB_SESSION_TIMEOUT="+session.String(),
-		"KB_MAX_INFLIGHT="+os.Getenv("KB_MAX_INFLIGHT"),
+		"HOK_SERVICE="+e.service,
+		"HOK_SPEC="+spec,
+		"HOK_UPSTREAM="+e.upstream,
+		"HOK_CRASH_AT="+crashAt,
+		"HOK_SESSION_TIMEOUT="+session.String(),
+		"HOK_MAX_INFLIGHT="+os.Getenv("HOK_MAX_INFLIGHT"),
 	)
 	p := &proc{cmd: c, exit: make(chan error, 1)}
 	defer e.awaitMemory()

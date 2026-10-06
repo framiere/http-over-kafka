@@ -12,8 +12,8 @@ import (
 
 type auditLine struct {
 	Kind, RequestID, Service, OperationID, Method, Path, Authenticity, Outcome, Fault string
-	Status                                                                        int
-	Caller                                                                        *struct{ Application, Instance string }
+	Status                                                                            int
+	Caller                                                                            *struct{ Application, Instance string }
 }
 
 // auditReader parses the auditor's stdout incrementally, keeping only the
@@ -90,8 +90,8 @@ func TestC7_AuditReadsTheMutationStream(t *testing.T) {
 
 	// The auditor starts last, with a fresh group: it replays history.
 	au := newProc(t, "audit", "audit", map[string]string{
-		"KAFKA_BROKERS": brokers, "KB_AUDIT_GROUP": randName("audit-"), "KB_TRUSTED_GATEWAY_KEYS": devEnv["KB_TRUSTED_GATEWAY_KEYS"],
-		"KB_TRUSTED_BRIDGE_KEYS": devEnv["KB_TRUSTED_BRIDGE_KEYS"],
+		"KAFKA_BROKERS": brokers, "HOK_AUDIT_GROUP": randName("audit-"), "HOK_TRUSTED_GATEWAY_KEYS": devEnv["HOK_TRUSTED_GATEWAY_KEYS"],
+		"HOK_TRUSTED_BRIDGE_KEYS": devEnv["HOK_TRUSTED_BRIDGE_KEYS"],
 	}).start()
 	ar := &auditReader{p: au, services: map[string]bool{ord.name: true, pay.name: true}}
 	eventually(t, 5*time.Minute, "audit saw every request and completion", func() bool {

@@ -69,7 +69,7 @@ func TestC3_TimeoutThenRetrySameKey(t *testing.T) {
 		t.Fatalf("GROUND TRUTH: %d debits", n)
 	}
 
-	// Scope is the calling application (D4: "même appelant"): another
+	// Scope is the calling application (D4: "same caller"): another
 	// application reusing the key is a different request. Observed, not judged.
 	b := newCaller(t, "billing")
 	x, _ := retryUntilAnswer(t, b, g1, pay.name, r, 20)
