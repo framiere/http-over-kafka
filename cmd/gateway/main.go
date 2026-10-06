@@ -42,6 +42,7 @@ import (
 	"github.com/sderosiaux/http-over-kafka/internal/gateway"
 	"github.com/sderosiaux/http-over-kafka/internal/identity"
 	"github.com/sderosiaux/http-over-kafka/internal/kafkaenv"
+	"github.com/sderosiaux/http-over-kafka/internal/wire"
 )
 
 var embeddedSpecs = map[string][]byte{"orders": api.Orders, "payments": api.Payments}
@@ -160,13 +161,13 @@ func config(logger *slog.Logger) (gateway.Config, error) {
 		Partitions: int32(partitions),
 		Logger:     logger,
 	}
-	for entry := range strings.SplitSeq(need("HOK_SERVICES"), ",") {
+	for index, entry := range strings.Split(need("HOK_SERVICES"), ",") {
 		if entry == "" {
 			continue
 		}
 		svc, err := service(strings.TrimSpace(entry))
 		if err != nil {
-			errs = append(errs, err)
+			errs = append(errs, fmt.Errorf("HOK_SERVICES entry %d: %w", index+1, err))
 			continue
 		}
 		svc.Credentials, err = apispec.ParseCredentials(svc.Spec.Name(), os.Getenv("HOK_UPSTREAM_CREDENTIALS"))
@@ -179,19 +180,27 @@ func config(logger *slog.Logger) (gateway.Config, error) {
 func service(entry string) (gateway.Service, error) {
 	name, upstream, ok := strings.Cut(entry, "=")
 	if !ok {
-		return gateway.Service{}, fmt.Errorf("HOK_SERVICES entry %q: want name=url", entry)
+		return gateway.Service{}, errors.New("want name=upstreamURL")
+	}
+	if err := wire.ValidateName("service", name); err != nil {
+		return gateway.Service{}, errors.New("invalid service name")
 	}
 	u, err := url.Parse(upstream)
 	if err != nil {
-		return gateway.Service{}, fmt.Errorf("HOK_SERVICES %s: %w", name, err)
+		return gateway.Service{}, errors.New("invalid upstream URL")
 	}
 	var spec *apispec.Service
 	if dir := os.Getenv("HOK_SPEC_DIR"); dir != "" {
 		spec, err = apispec.LoadFile(name, filepath.Join(dir, name+".openapi.yaml"))
+		var pathErr *os.PathError
+		if errors.As(err, &pathErr) {
+			// A malformed entry may put secret text in the apparent name.
+			return gateway.Service{}, errors.New("cannot read service specification from HOK_SPEC_DIR")
+		}
 	} else if data, ok := embeddedSpecs[name]; ok {
 		spec, err = apispec.Load(name, data)
 	} else {
-		err = fmt.Errorf("no embedded spec for %q; set HOK_SPEC_DIR", name)
+		err = errors.New("no embedded service specification; set HOK_SPEC_DIR")
 	}
 	if err != nil {
 		return gateway.Service{}, err

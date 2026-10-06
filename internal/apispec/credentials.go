@@ -17,7 +17,9 @@ type Credentials map[string]string
 // service. Values may not contain commas.
 func ParseCredentials(service, s string) (Credentials, error) {
 	out := Credentials{}
+	index := 0
 	for entry := range strings.SplitSeq(s, ",") {
+		index++
 		entry = strings.TrimSpace(entry)
 		if entry == "" {
 			continue
@@ -25,7 +27,8 @@ func ParseCredentials(service, s string) (Credentials, error) {
 		name, value, ok := strings.Cut(entry, "=")
 		svc, scheme, ok2 := strings.Cut(name, ".")
 		if !ok || !ok2 || svc == "" || scheme == "" || value == "" {
-			return nil, fmt.Errorf("credential entry %q: want service.scheme=value", name)
+			// A missing separator makes name contain the entire secret entry.
+			return nil, fmt.Errorf("credential entry %d: want service.scheme=value", index)
 		}
 		if svc == service {
 			out[scheme] = value
@@ -61,7 +64,7 @@ func (c Credentials) Check(s *Service, include func(*Operation) bool) error {
 	for name := range c {
 		sc, ok := s.SecurityScheme(name)
 		if !ok {
-			return fmt.Errorf("service %q: credential for undeclared securityScheme %q", s.Name(), name)
+			return fmt.Errorf("service %q: credential names an undeclared securityScheme", s.Name())
 		}
 		if sc.Type == "mutualTLS" {
 			return fmt.Errorf("service %q: securityScheme %q is mutualTLS, not injectable", s.Name(), name)
