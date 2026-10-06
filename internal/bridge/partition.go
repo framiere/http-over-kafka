@@ -458,7 +458,7 @@ func (w *partition) open() (store, error) {
 				reached = true
 				break
 			}
-			if err := verifyStateRecord(w.b.cfg.Signer.Self(), r); err != nil {
+			if err := verifyStateRecord(w.b.cfg.StateKeys, r); err != nil {
 				w.b.abandon(&layoutError{err.Error()})
 				return store{}, err
 			}
