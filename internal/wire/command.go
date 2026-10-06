@@ -58,8 +58,9 @@ type Command struct {
 	// does not cancel the command (D4).
 	Deadline time.Time `json:"deadline"`
 	// IssuedAt/ExpiresAt bound how long the signed command may be acted upon.
-	// Past ExpiresAt the bridge must not call B. Dedup state must outlive
-	// ExpiresAt (+ clock skew), otherwise a replayed record executes twice.
+	// Past ExpiresAt plus the tolerated clock skew, the bridge must not start
+	// another call to B. A call already in progress may finish. Dedup state
+	// must outlive this window, otherwise a replayed record executes twice.
 	IssuedAt  time.Time `json:"issuedAt"`
 	ExpiresAt time.Time `json:"expiresAt"`
 }
