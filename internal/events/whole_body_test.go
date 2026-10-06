@@ -1,7 +1,10 @@
 package events_test
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -66,6 +69,54 @@ func TestWholeBodyMappingStillRejectsInvalidValues(t *testing.T) {
 			src := fmt.Sprintf(wholeBodySpec, "$.response.body") + "          forbidden: " + expr + "\n"
 			if _, err := apispec.Load("orders", []byte(src)); err == nil || !strings.Contains(err.Error(), expr) {
 				t.Fatalf("want rejected expression %s, got %v", expr, err)
+			}
+		})
+	}
+}
+
+func TestWholeBodyValuesKeepJSONTypes(t *testing.T) {
+	// A body selected as a value may be any JSON value even though event keys
+	// accept only strings or numbers. A null value must remain explicit null.
+	for _, value := range []string{`null`, `false`, `0`, `-1.25e+30`, `""`, `"\\u003c"`, `[]`, `{}`, `{"nested":[null,true,9007199254740993]}`} {
+		t.Run(value, func(t *testing.T) {
+			svc := load(t, "orders", []byte(fmt.Sprintf(wholeBodySpec, "$.response.body")))
+			cmd := createOrder(t, "orders", value)
+			ev, err := events.Derive(svc, result(t, cmd, answered(cmd, 201, `"order-1"`)))
+			if err != nil || ev == nil {
+				t.Fatalf("event=%v error=%v", ev, err)
+			}
+			// Compare JSON with UseNumber so a rounded large integer cannot pass.
+			decode := func(raw []byte) any {
+				t.Helper()
+				dec := json.NewDecoder(bytes.NewReader(raw))
+				dec.UseNumber()
+				var out any
+				if err := dec.Decode(&out); err != nil {
+					t.Fatal(err)
+				}
+				return out
+			}
+			want := decode([]byte(`{"request":` + value + `,"response":"order-1"}`))
+			got := decode(ev.Value)
+			if string(ev.Key) != "order-1" || !reflect.DeepEqual(got, want) {
+				t.Fatalf("key=%s value=%s; want %#v", ev.Key, ev.Value, want)
+			}
+		})
+	}
+}
+
+func TestWholeBodyValueFailureDoesNotEmitPartialEvent(t *testing.T) {
+	svc := load(t, "orders", []byte(fmt.Sprintf(wholeBodySpec, "$.response.body")))
+	for _, body := range []string{"", " \n\t", "not JSON", `{} {}`, `{"unterminated":`, `"a" "b"`} {
+		t.Run(fmt.Sprintf("request=%q", body), func(t *testing.T) {
+			cmd := createOrder(t, "orders", body)
+			ev, err := events.Derive(svc, result(t, cmd, answered(cmd, 201, `"order-1"`)))
+			de, ok := events.AsError(err)
+			if ev != nil || !ok || de.Reason != events.ReasonEvaluationFailed {
+				t.Fatalf("event=%v error=%v", ev, err)
+			}
+			if !strings.Contains(err.Error(), "request.body") {
+				t.Fatalf("failed expression missing: %v", err)
 			}
 		})
 	}
