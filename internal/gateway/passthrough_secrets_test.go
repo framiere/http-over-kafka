@@ -91,6 +91,9 @@ paths:
 			if !strings.Contains(logs.String(), tc.diagnostic) {
 				t.Fatalf("safe diagnostic missing: %s", logs.String())
 			}
+			if !strings.Contains(logs.String(), "service=secure") {
+				t.Fatalf("service missing from diagnostic: %s", logs.String())
+			}
 		})
 	}
 }

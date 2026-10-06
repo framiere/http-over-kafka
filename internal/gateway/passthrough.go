@@ -55,7 +55,7 @@ func (g *Gateway) newPassthrough(svc *service) http.Handler {
 	upstream := svc.Upstream
 	return &httputil.ReverseProxy{
 		Transport: g.cfg.Transport,
-		ErrorLog:  log.New(proxyErrorLog{g.log}, "", 0),
+		ErrorLog:  log.New(proxyErrorLog{g.log.With("service", svc.Spec.Name())}, "", 0),
 		Rewrite: func(pr *httputil.ProxyRequest) {
 			in := pr.In.URL
 			// Path kept exactly as received, escaping included: no cleaning,
@@ -76,6 +76,11 @@ func (g *Gateway) newPassthrough(svc *service) http.Handler {
 			h.Set(wire.CallerInstanceHeader, info.caller.Instance)
 			h.Set(wire.RequestIDHeader, info.requestID)
 			pr.Out.Header = h
+			// Go logs unsolicited bytes from an idle HTTP/1 connection to
+			// log.Default, outside ReverseProxy's ErrorLog. A service can
+			// reflect its credential in those bytes. Close just the requests
+			// carrying credentials and preserve pooling for anonymous ones.
+			pr.Out.Close = len(alt) > 0 || pr.Out.URL.User != nil || h.Get("Authorization") != "" || h.Get("Proxy-Authorization") != "" || h.Get("Cookie") != ""
 		},
 		ModifyResponse: func(resp *http.Response) error {
 			resp.Header.Set(wire.RequestIDHeader, infoOf(resp.Request).requestID)
@@ -90,7 +95,7 @@ func (g *Gateway) newPassthrough(svc *service) http.Handler {
 			case r.Context().Err() != nil:
 				// Caller left; nobody to answer.
 			default:
-				g.log.Warn("passthrough failed", "requestId", requestID, "err", httpfailure.Detail(err))
+				g.log.Warn("passthrough failed", "service", svc.Spec.Name(), "requestId", requestID, "err", httpfailure.Detail(err))
 				writeProblem(w, requestID, http.StatusServiceUnavailable, ProblemUpstreamUnavailable,
 					"Service unavailable", "the service could not be reached")
 			}
