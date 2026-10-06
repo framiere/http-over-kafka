@@ -3,10 +3,8 @@ package bridge
 import (
 	"bytes"
 	"context"
-	"errors"
 	"fmt"
 	"io"
-	"net"
 	"net/http"
 	"net/http/httptrace"
 	"net/url"
@@ -16,6 +14,7 @@ import (
 	"time"
 
 	"github.com/sderosiaux/http-over-kafka/internal/apispec"
+	"github.com/sderosiaux/http-over-kafka/internal/httpfailure"
 	"github.com/sderosiaux/http-over-kafka/internal/wire"
 )
 
@@ -149,20 +148,20 @@ func (u *upstream) call(ctx context.Context, cmd wire.Command, op *apispec.Opera
 	})
 	req, err := u.request(ctx, cmd, op)
 	if err != nil {
-		return wire.FaultResponse(cmd.RequestID, wire.FaultUpstreamUnavailable, "cannot build request: "+err.Error())
+		return wire.FaultResponse(cmd.RequestID, wire.FaultUpstreamUnavailable, "cannot build upstream request")
 	}
 	resp, err := u.client.Do(req)
 	if err != nil {
 		if !connected.Load() {
-			return wire.FaultResponse(cmd.RequestID, wire.FaultUpstreamUnavailable, describe(err))
+			return wire.FaultResponse(cmd.RequestID, wire.FaultUpstreamUnavailable, httpfailure.Detail(err))
 		}
-		return wire.FaultResponse(cmd.RequestID, wire.FaultOutcomeUnknown, describe(err))
+		return wire.FaultResponse(cmd.RequestID, wire.FaultOutcomeUnknown, httpfailure.Detail(err))
 	}
 	defer resp.Body.Close()
 
 	body, err := io.ReadAll(io.LimitReader(resp.Body, wire.MaxBodyBytes+1))
 	if err != nil {
-		r := wire.FaultResponse(cmd.RequestID, wire.FaultResponseIncomplete, describe(err))
+		r := wire.FaultResponse(cmd.RequestID, wire.FaultResponseIncomplete, httpfailure.Detail(err))
 		r.UpstreamStatus = resp.StatusCode
 		return r
 	}
@@ -181,17 +180,9 @@ func (u *upstream) call(ctx context.Context, cmd wire.Command, op *apispec.Opera
 	if err := out.Validate(); err != nil {
 		// B answered something we cannot relay or classify (e.g. a status
 		// outside 200..599): saying more than "unknown" would be a guess.
-		return wire.FaultResponse(cmd.RequestID, wire.FaultOutcomeUnknown, "unrelayable upstream response: "+err.Error())
+		return wire.FaultResponse(cmd.RequestID, wire.FaultOutcomeUnknown, "service returned an invalid HTTP response")
 	}
 	return out
-}
-
-func describe(err error) string {
-	var ne net.Error
-	if errors.As(err, &ne) && ne.Timeout() {
-		return "upstream timeout: " + err.Error()
-	}
-	return err.Error()
 }
 
 // redactSecrets finds credentials the service's contract declares (D12) in a
