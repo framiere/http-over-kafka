@@ -299,16 +299,17 @@ func (g *Gateway) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		writeProblem(w, requestID, http.StatusUnauthorized, ProblemUnauthorized, "Unauthorized", ae.detail)
 		return
 	}
-	method := r.Method
-	if method == http.MethodHead {
-		method = http.MethodGet // as net/http serves HEAD for every GET route
+	match, err := svc.Spec.Resolve(r.Method, r.URL.EscapedPath())
+	if r.Method == http.MethodHead && errors.Is(err, apispec.ErrMethodNotAllowed) {
+		// An explicit HEAD has its own security requirements. Only inherit
+		// GET when the contract does not declare HEAD on this path.
+		match, err = svc.Spec.Resolve(http.MethodGet, r.URL.EscapedPath())
 	}
-	match, err := svc.Spec.Resolve(method, r.URL.EscapedPath())
 	if err != nil {
 		var mna *apispec.MethodNotAllowedError
 		if errors.As(err, &mna) {
 			allow := mna.Allow
-			if slices.Contains(allow, http.MethodGet) {
+			if slices.Contains(allow, http.MethodGet) && !slices.Contains(allow, http.MethodHead) {
 				allow = append(slices.Clone(allow), http.MethodHead)
 				slices.Sort(allow)
 			}
