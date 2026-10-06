@@ -15,6 +15,7 @@ import (
 	"github.com/sderosiaux/http-over-kafka/internal/kafkaenv"
 	"github.com/sderosiaux/http-over-kafka/internal/wire"
 	"github.com/twmb/franz-go/pkg/kadm"
+	"github.com/twmb/franz-go/pkg/kerr"
 	"github.com/twmb/franz-go/pkg/kgo"
 )
 
@@ -206,14 +207,26 @@ func (d *Deriver) Run(ctx context.Context) error {
 		return fmt.Errorf("init producer id: %w", err)
 	}
 	d.log.Info("deriving events", "from", wire.ResultTopic(svc), "failures", FailureTopic(svc))
+	return d.consume(ctx, sess.PollFetches, func(fs kgo.Fetches) error { return d.batch(ctx, sess, fs) })
+}
 
+// consume keeps polling through retriable Kafka errors. In particular, franz-go
+// reports ErrGroupSession while its group manager backs off and rejoins after
+// a coordinator change. Returning here would stop that recovery. Session loss
+// still aborts transactions through GroupTransactSession's callbacks and End;
+// the next assignment reloads dedup state before another batch.
+func (d *Deriver) consume(ctx context.Context, poll func(context.Context) kgo.Fetches, batch func(kgo.Fetches) error) error {
 	for {
-		fs := sess.PollFetches(ctx)
+		fs := poll(ctx)
 		if ctx.Err() != nil {
 			return nil
 		}
 		var ferr error
 		fs.EachError(func(t string, p int32, err error) {
+			if kerr.IsRetriable(err) {
+				d.log.Warn("transient fetch error; consumer will retry", "topic", t, "partition", p, "err", err)
+				return
+			}
 			ferr = errors.Join(ferr, fmt.Errorf("fetch %s[%d]: %w", t, p, err))
 		})
 		if ferr != nil {
@@ -222,7 +235,7 @@ func (d *Deriver) Run(ctx context.Context) error {
 		if fs.NumRecords() == 0 {
 			continue
 		}
-		if err := d.batch(ctx, sess, fs); err != nil {
+		if err := batch(fs); err != nil {
 			return err
 		}
 	}
