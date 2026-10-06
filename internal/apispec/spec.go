@@ -107,8 +107,12 @@ func (s *Service) Operation(id string) (*Operation, bool) {
 // Operations returns all operations, ordered by path template then method.
 func (s *Service) Operations() []*Operation {
 	out := make([]*Operation, 0, len(s.byID))
-	for _, op := range s.byID {
-		out = append(out, op)
+	// operationId is optional on reads. Enumerate the routing table so
+	// startup checks also see unnamed operations and their security needs.
+	for _, r := range s.routes {
+		for _, op := range r.ops {
+			out = append(out, op)
+		}
 	}
 	slices.SortFunc(out, func(a, b *Operation) int {
 		return strings.Compare(a.PathTemplate+" "+a.Method, b.PathTemplate+" "+b.Method)
