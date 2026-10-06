@@ -25,6 +25,8 @@ jobs:
       - uses: actions/checkout@v7
       # The diagrams live in docs/ once; the site gets a copy at build time.
       - run: cp docs/architecture.svg docs/sequence.svg site/
+      # Pages caches assets for 10 minutes: version them so a deploy never pairs new HTML with old CSS.
+      - run: sed -i "s/styles.css\"/styles.css?v=${GITHUB_SHA::7}\"/; s/app.js\"/app.js?v=${GITHUB_SHA::7}\"/" site/index.html
       - uses: actions/configure-pages@v6
       - uses: actions/upload-pages-artifact@v5
         with:
