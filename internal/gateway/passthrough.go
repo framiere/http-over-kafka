@@ -3,11 +3,14 @@ package gateway
 import (
 	"context"
 	"errors"
+	"log"
+	"log/slog"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
 
 	"github.com/sderosiaux/http-over-kafka/internal/apispec"
+	"github.com/sderosiaux/http-over-kafka/internal/httpfailure"
 	"github.com/sderosiaux/http-over-kafka/internal/wire"
 )
 
@@ -20,6 +23,16 @@ type passthroughInfo struct {
 }
 
 var errPassthroughTimeout = errors.New("passthrough timeout")
+
+// ReverseProxy logs body-copy and upgrade errors outside ErrorHandler. Those
+// errors can carry the credential-bearing upstream URL or arbitrary transport
+// data, so none of their text may reach the logger.
+type proxyErrorLog struct{ logger *slog.Logger }
+
+func (l proxyErrorLog) Write(p []byte) (int, error) {
+	l.logger.Warn("passthrough response forwarding failed")
+	return len(p), nil
+}
 
 // passthrough proxies a read straight to B (D8): nothing touches Kafka. The
 // timeout bounds the whole exchange, body included.
@@ -42,6 +55,7 @@ func (g *Gateway) newPassthrough(svc *service) http.Handler {
 	upstream := svc.Upstream
 	return &httputil.ReverseProxy{
 		Transport: g.cfg.Transport,
+		ErrorLog:  log.New(proxyErrorLog{g.log}, "", 0),
 		Rewrite: func(pr *httputil.ProxyRequest) {
 			in := pr.In.URL
 			// Path kept exactly as received, escaping included: no cleaning,
@@ -76,7 +90,7 @@ func (g *Gateway) newPassthrough(svc *service) http.Handler {
 			case r.Context().Err() != nil:
 				// Caller left; nobody to answer.
 			default:
-				g.log.Warn("passthrough failed", "requestId", requestID, "err", err)
+				g.log.Warn("passthrough failed", "requestId", requestID, "err", httpfailure.Detail(err))
 				writeProblem(w, requestID, http.StatusServiceUnavailable, ProblemUpstreamUnavailable,
 					"Service unavailable", "the service could not be reached")
 			}
